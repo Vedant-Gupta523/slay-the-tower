@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="DefendSkillData" load_steps=2 format=3 uid="uid://dgrkhe5u6a7sx"]
+
+[ext_resource type="Script" uid="uid://q7iypjtudfsw" path="res://scripts/skills/defend_skill_data.gd" id="1_qm0sm"]
+
+[resource]
+script = ExtResource("1_qm0sm")
+skill_name = "Brace"
+description = "Take a defensive stance. 2-turn cooldown."
+cooldown_turns = 2
+target_type = 1
+metadata/_custom_type_script = "uid://q7iypjtudfsw"
