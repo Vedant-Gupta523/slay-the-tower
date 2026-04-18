@@ -1,7 +1,8 @@
-[gd_resource type="Resource" script_class="UnitData" load_steps=3 format=3 uid="uid://cocrre08gx1nj"]
+[gd_resource type="Resource" script_class="UnitData" load_steps=4 format=3 uid="uid://cocrre08gx1nj"]
 
 [ext_resource type="Script" uid="uid://prqpkincbm8n" path="res://scripts/units/unit_data.gd" id="1_eciro"]
 [ext_resource type="Resource" uid="uid://dvhrvggik6y20" path="res://data/skills/slime_burst.tres" id="2_7yg6b"]
+[ext_resource type="Script" uid="uid://166ln2p16c2f" path="res://scripts/skills/skill_data.gd" id="2_b3tfh"]
 
 [resource]
 script = ExtResource("1_eciro")
@@ -10,5 +11,5 @@ max_hp = 25
 atk = 6
 def = 1
 spd = 8
-skills = Array[Resource]([ExtResource("2_7yg6b")])
+skills = Array[ExtResource("2_b3tfh")]([ExtResource("2_7yg6b")])
 metadata/_custom_type_script = "uid://prqpkincbm8n"
