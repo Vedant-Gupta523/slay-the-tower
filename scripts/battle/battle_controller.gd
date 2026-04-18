@@ -3,13 +3,14 @@ extends Control
 
 @export var player_data: UnitData
 @export var enemy_data: UnitData
-@export var enemy_turn_delay: float = 0.9
+@export var enemy_turn_delay: float = 0.75
 
 @onready var turn_label: Label = $MarginContainer/VBoxContainer/TurnLabel
 @onready var player_hp_label: Label = $MarginContainer/VBoxContainer/HBoxContainer/PlayerBox/PlayerHpLabel
 @onready var enemy_hp_label: Label = $MarginContainer/VBoxContainer/HBoxContainer/EnemyBox/EnemyHpLabel
 @onready var log_label: Label = $MarginContainer/VBoxContainer/LogLabel
 @onready var attack_button: Button = $MarginContainer/VBoxContainer/Actions/AttackButton
+@onready var defend_button: Button = $MarginContainer/VBoxContainer/Actions/DefendButton
 
 enum BattleState {
 	START,
@@ -25,7 +26,12 @@ var battle_state: BattleState = BattleState.START
 
 func _ready() -> void:
 	attack_button.pressed.connect(_on_attack_button_pressed)
+	defend_button.pressed.connect(_on_defend_button_pressed)
 	start_battle()
+
+func set_action_buttons_enabled(enabled: bool) -> void:
+	attack_button.disabled = not enabled
+	defend_button.disabled = not enabled
 
 func start_battle() -> void:
 	player = PlayerUnit.new(player_data)
@@ -42,13 +48,13 @@ func start_player_turn() -> void:
 	battle_state = BattleState.PLAYER_TURN
 	turn_label.text = "Player Turn"
 	log_label.text = "Choose an action."
-	attack_button.disabled = false
+	set_action_buttons_enabled(true)
 
 func run_enemy_turn() -> void:
 	battle_state = BattleState.ENEMY_TURN
 	turn_label.text = "Enemy Turn"
 	log_label.text = "%s is thinking..." % enemy.get_unit_name()
-	attack_button.disabled = true
+	set_action_buttons_enabled(false)
 
 	await get_tree().create_timer(enemy_turn_delay).timeout
 
@@ -73,7 +79,7 @@ func _on_attack_button_pressed() -> void:
 	if battle_state != BattleState.PLAYER_TURN:
 		return
 
-	attack_button.disabled = true
+	set_action_buttons_enabled(false)
 
 	var damage: int = player.basic_attack(enemy)
 	log_label.text = "%s attacks %s for %d damage." % [
@@ -89,19 +95,31 @@ func _on_attack_button_pressed() -> void:
 
 	run_enemy_turn()
 
+func _on_defend_button_pressed() -> void:
+	if battle_state != BattleState.PLAYER_TURN:
+		return
+
+	set_action_buttons_enabled(false)
+
+	player.start_defending()
+	log_label.text = "%s takes a defensive stance." % player.get_unit_name()
+
+	update_ui()
+	run_enemy_turn()
+
 func check_battle_end() -> bool:
 	if enemy.is_dead():
 		battle_state = BattleState.VICTORY
 		turn_label.text = "Victory"
 		log_label.text = "Player won."
-		attack_button.disabled = true
+		set_action_buttons_enabled(false)
 		return true
 
 	if player.is_dead():
 		battle_state = BattleState.DEFEAT
 		turn_label.text = "Defeat"
 		log_label.text = "Player lost."
-		attack_button.disabled = true
+		set_action_buttons_enabled(false)
 		return true
 
 	return false
@@ -118,3 +136,4 @@ func update_ui() -> void:
 		enemy.get_current_hp() if enemy != null else enemy_data.max_hp,
 		enemy_data.max_hp
 	]
+	
