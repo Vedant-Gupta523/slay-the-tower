@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="DamageSkillData" load_steps=2 format=3 uid="uid://dvhrvggik6y20"]
+
+[ext_resource type="Script" uid="uid://b558co08hkxcw" path="res://scripts/skills/damage_skill_data.gd" id="1_xkbdr"]
+
+[resource]
+script = ExtResource("1_xkbdr")
+power = 9
+skill_name = "Slime Burst"
+description = "A stronger slime attack. 2-turn cooldown."
+cooldown_turns = 2
+metadata/_custom_type_script = "uid://b558co08hkxcw"

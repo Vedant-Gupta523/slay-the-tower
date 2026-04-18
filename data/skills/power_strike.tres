@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="DamageSkillData" load_steps=2 format=3 uid="uid://dxge3sm5oebfe"]
+
+[ext_resource type="Script" uid="uid://b558co08hkxcw" path="res://scripts/skills/damage_skill_data.gd" id="1_bbnfr"]
+
+[resource]
+script = ExtResource("1_bbnfr")
+skill_name = "Power Strike"
+description = "Deal 12 damage. 2-turn cooldown."
+cooldown_turns = 2
+metadata/_custom_type_script = "uid://b558co08hkxcw"
