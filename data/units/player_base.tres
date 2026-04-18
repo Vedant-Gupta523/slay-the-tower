@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="UnitData" load_steps=2 format=3 uid="uid://bnqs4jsmjxmur"]
+
+[ext_resource type="Script" uid="uid://prqpkincbm8n" path="res://scripts/units/unit_data.gd" id="1_pwjlq"]
+
+[resource]
+script = ExtResource("1_pwjlq")
+unit_name = "Player"
+max_hp = 40
+atk = 8
+def = 3
+spd = 12
+metadata/_custom_type_script = "uid://prqpkincbm8n"
