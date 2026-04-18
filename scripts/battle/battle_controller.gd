@@ -49,15 +49,13 @@ func start_player_turn() -> void:
 	player.reduce_skill_cooldowns()
 
 	battle_state = BattleState.PLAYER_TURN
-	view.set_turn_text("Player Turn")
-	view.set_log_text("Choose an action.")
+	view.present_player_turn_started()
 	view.set_action_buttons_enabled(true)
 	view.refresh_skill_bar(player.get_skills(), true)
 
 func run_enemy_turn() -> void:
 	battle_state = BattleState.ENEMY_TURN
-	view.set_turn_text("Enemy Turn")
-	view.set_log_text("%s is thinking..." % enemy.get_unit_name())
+	view.present_enemy_turn_started(enemy.get_unit_name())
 	view.set_action_buttons_enabled(false)
 	view.refresh_skill_bar(player.get_skills(), false)
 
@@ -82,19 +80,26 @@ func run_enemy_turn() -> void:
 		if chosen_skill.get_target_type() == SkillData.TargetType.SELF:
 			target = enemy
 
+		if target != enemy:
+			await view.play_enemy_attack()
+
 		var result: SkillResult = chosen_skill.use(enemy, target)
-		view.set_log_text("%s uses %s. %s" % [
+		view.present_skill_used(
 			enemy.get_unit_name(),
 			chosen_skill.get_skill_name(),
+			_get_target_side(target),
+			result.damage,
 			result.message
-		])
+		)
 	else:
+		await view.play_enemy_attack()
 		var damage: int = enemy.basic_attack(player)
-		view.set_log_text("%s attacks %s for %d damage." % [
+		view.present_basic_attack(
 			enemy.get_unit_name(),
 			player.get_unit_name(),
+			BattleView.TARGET_PLAYER,
 			damage
-		])
+		)
 
 	update_ui()
 
@@ -110,12 +115,14 @@ func _on_attack_button_pressed() -> void:
 	view.set_action_buttons_enabled(false)
 	view.refresh_skill_bar(player.get_skills(), false)
 
+	await view.play_player_attack()
 	var damage: int = player.basic_attack(enemy)
-	view.set_log_text("%s attacks %s for %d damage." % [
+	view.present_basic_attack(
 		player.get_unit_name(),
 		enemy.get_unit_name(),
+		BattleView.TARGET_ENEMY,
 		damage
-	])
+	)
 
 	update_ui()
 
@@ -132,7 +139,7 @@ func _on_defend_button_pressed() -> void:
 	view.refresh_skill_bar(player.get_skills(), false)
 
 	player.start_defending()
-	view.set_log_text("%s takes a defensive stance." % player.get_unit_name())
+	view.present_defend_activated(player.get_unit_name())
 
 	update_ui()
 
@@ -163,12 +170,17 @@ func _on_skill_button_pressed(skill_index: int) -> void:
 	if skill.get_target_type() == SkillData.TargetType.SELF:
 		target = player
 
+	if target != player:
+		await view.play_player_attack()
+
 	var result: SkillResult = skill.use(player, target)
-	view.set_log_text("%s uses %s. %s" % [
+	view.present_skill_used(
 		player.get_unit_name(),
 		skill.get_skill_name(),
+		_get_target_side(target),
+		result.damage,
 		result.message
-	])
+	)
 
 	update_ui()
 
@@ -180,16 +192,14 @@ func _on_skill_button_pressed(skill_index: int) -> void:
 func check_battle_end() -> bool:
 	if enemy.is_dead():
 		battle_state = BattleState.VICTORY
-		view.set_turn_text("Victory")
-		view.set_log_text("Player won.")
+		view.present_battle_result(true)
 		view.set_action_buttons_enabled(false)
 		view.refresh_skill_bar(player.get_skills(), false)
 		return true
 
 	if player.is_dead():
 		battle_state = BattleState.DEFEAT
-		view.set_turn_text("Defeat")
-		view.set_log_text("Player lost.")
+		view.present_battle_result(false)
 		view.set_action_buttons_enabled(false)
 		view.refresh_skill_bar(player.get_skills(), false)
 		return true
@@ -205,3 +215,10 @@ func update_ui() -> void:
 		enemy.get_current_hp(),
 		enemy.get_max_hp()
 	)
+	view.update_status(player.is_defending, enemy.is_defending)
+
+func _get_target_side(target: BattleUnit) -> String:
+	if target == player:
+		return BattleView.TARGET_PLAYER
+
+	return BattleView.TARGET_ENEMY
