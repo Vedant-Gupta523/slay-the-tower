@@ -9,4 +9,3 @@ description = "A sturdy ring that adds a little staying power."
 slot_type = 2
 max_hp_bonus = 4
 def_bonus = 1
-

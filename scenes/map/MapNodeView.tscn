@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/node/MapNodeView.gd" id="1_3wx8a"]
+
+[node name="MapNodeView" type="TextureButton"]
+offset_right = 64.0
+offset_bottom = 64.0
+mouse_default_cursor_shape = 2
+ignore_texture_size = true
+stretch_mode = 5
+script = ExtResource("1_3wx8a")

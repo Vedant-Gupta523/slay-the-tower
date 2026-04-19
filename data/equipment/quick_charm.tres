@@ -8,4 +8,3 @@ item_name = "Quick Charm"
 description = "A small charm that helps you act first."
 slot_type = 2
 spd_bonus = 3
-

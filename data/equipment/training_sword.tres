@@ -8,4 +8,3 @@ item_name = "Training Sword"
 description = "A simple blade that makes basic strikes more reliable."
 slot_type = 0
 atk_bonus = 2
-

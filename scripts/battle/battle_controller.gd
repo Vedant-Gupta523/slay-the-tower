@@ -1,6 +1,10 @@
 class_name BattleController
 extends Node
 
+signal battle_won
+signal battle_lost
+signal battle_exited
+
 @export var player_data: UnitData
 @export var enemy_data: UnitData
 @export var enemy_turn_delay: float = 0.75
@@ -20,6 +24,7 @@ var player: PlayerUnit
 var enemy: EnemyUnit
 var battle_state: BattleState = BattleState.START
 var view: BattleView
+var _result_emitted: bool = false
 var reward_options: Array[EquipmentData] = []
 
 func _ready() -> void:
@@ -39,6 +44,7 @@ func _ready() -> void:
 	view.equipment_manage_requested.connect(_on_equipment_manage_requested)
 	view.reserve_equipment_equip_requested.connect(_on_reserve_equipment_equip_requested)
 	view.equipment_slot_unequip_requested.connect(_on_equipment_slot_unequip_requested)
+	set_process_unhandled_input(true)
 
 	start_battle()
 
@@ -47,7 +53,6 @@ func start_battle() -> void:
 	enemy = EnemyUnit.new(enemy_data)
 	view.hide_equipment_rewards()
 	view.hide_equipment_panel()
-
 	view.build_skill_bar(player.get_skills())
 	update_ui()
 
@@ -214,6 +219,7 @@ func check_battle_end() -> bool:
 		view.present_battle_result(false)
 		view.set_action_buttons_enabled(false)
 		view.refresh_skill_bar(player.get_skills(), false)
+		_emit_battle_result(&"battle_lost")
 		return true
 
 	return false
@@ -240,6 +246,7 @@ func _offer_equipment_rewards() -> void:
 
 	if reward_options.is_empty():
 		view.set_log_text("No equipment rewards found.")
+		_emit_battle_result(&"battle_won")
 		return
 
 	view.show_equipment_rewards(reward_options, player.get_equipped_items())
@@ -297,12 +304,14 @@ func _on_reward_selected(reward_index: int) -> void:
 		view.set_log_text("Stored %s in reserve." % item.item_name)
 
 	update_ui()
+	_emit_battle_result(&"battle_won")
 
 func _on_reward_skipped() -> void:
 	if battle_state != BattleState.VICTORY:
 		return
 
 	view.set_log_text("Skipped equipment reward.")
+	_emit_battle_result(&"battle_won")
 
 func _on_equipment_manage_requested() -> void:
 	if player == null:
@@ -338,3 +347,24 @@ func _on_equipment_slot_unequip_requested(slot_type: int) -> void:
 
 func _refresh_equipment_panel() -> void:
 	view.show_equipment_panel(player.get_equipped_items(), player.get_reserve_inventory())
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if _result_emitted:
+		return
+
+	if event.is_action_pressed("ui_cancel"):
+		if view != null:
+			view.set_action_buttons_enabled(false)
+			if player != null:
+				view.refresh_skill_bar(player.get_skills(), false)
+		_emit_battle_result(&"battle_exited")
+		get_viewport().set_input_as_handled()
+
+
+func _emit_battle_result(signal_name: StringName) -> void:
+	if _result_emitted:
+		return
+
+	_result_emitted = true
+	call_deferred("emit_signal", signal_name)

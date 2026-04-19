@@ -498,12 +498,10 @@ func _create_reward_card(item: EquipmentData, equipped_items: Dictionary, reward
 	box.add_child(bonus_label)
 
 	var compare_label := Label.new()
-
 	if current_item != null:
 		compare_label.text = "Replaces: %s" % current_item.item_name
 	else:
 		compare_label.text = "Empty slot"
-
 	compare_label.modulate = Color(0.72, 0.72, 0.72)
 	box.add_child(compare_label)
 
