@@ -1,0 +1,12 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/flow/game_run_flow.gd" id="1_uxg52"]
+[ext_resource type="Script" path="res://scripts/map/map_run_state.gd" id="2_5eocu"]
+
+[node name="GameRunFlow" type="Node"]
+script = ExtResource("1_uxg52")
+
+[node name="MapRunState" type="Node" parent="."]
+script = ExtResource("2_5eocu")
+
+[node name="CurrentSceneRoot" type="Node" parent="."]

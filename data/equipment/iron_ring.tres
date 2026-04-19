@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="EquipmentData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/equipment/equipment_data.gd" id="1_iron_ring"]
+
+[resource]
+script = ExtResource("1_iron_ring")
+item_name = "Iron Ring"
+description = "A sturdy ring that adds a little staying power."
+slot_type = 2
+max_hp_bonus = 4
+def_bonus = 1

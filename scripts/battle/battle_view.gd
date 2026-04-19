@@ -4,6 +4,11 @@ extends Control
 signal attack_pressed
 signal defend_pressed
 signal skill_pressed(skill_index: int)
+signal reward_selected(reward_index: int)
+signal reward_skipped
+signal equipment_manage_requested
+signal reserve_equipment_equip_requested(reserve_index: int)
+signal equipment_slot_unequip_requested(slot_type: int)
 
 const MAX_LOG_LINES := 6
 const TARGET_PLAYER := "player"
@@ -24,6 +29,20 @@ const ENEMY_TURN_COLOR := Color(1.0, 0.84, 0.72)
 const RESULT_TURN_COLOR := Color(1.0, 0.95, 0.62)
 const HP_TWEEN_TIME := 0.28
 const IMPACT_BEAT_TIME := 0.12
+const REWARD_CARD_SIZE := Vector2(240, 190)
+const REWARD_CARD_NORMAL_COLOR := Color(0.12, 0.12, 0.12, 0.96)
+const REWARD_CARD_HOVER_COLOR := Color(0.20, 0.20, 0.20, 1.0)
+const REWARD_CARD_SELECTED_COLOR := Color(0.34, 0.32, 0.18, 1.0)
+const REWARD_CARD_BORDER_COLOR := Color(0.58, 0.58, 0.58, 0.65)
+const REWARD_CARD_HOVER_BORDER_COLOR := Color(1.0, 0.88, 0.48, 1.0)
+const EQUIPMENT_ROW_NORMAL_COLOR := Color(0.10, 0.10, 0.10, 0.85)
+const EQUIPMENT_ROW_HOVER_COLOR := Color(0.18, 0.18, 0.18, 1.0)
+const EQUIPMENT_ROW_SELECTED_COLOR := Color(0.26, 0.24, 0.14, 1.0)
+const EQUIPMENT_ROW_BORDER_COLOR := Color(0.42, 0.42, 0.42, 0.45)
+const EQUIPMENT_ROW_SELECTED_BORDER_COLOR := Color(1.0, 0.86, 0.44, 1.0)
+const EQUIPMENT_PANEL_COLOR := Color(0.06, 0.06, 0.06, 1.0)
+const EQUIPMENT_SECTION_COLOR := Color(0.095, 0.095, 0.095, 1.0)
+const EQUIPMENT_SECTION_BORDER_COLOR := Color(0.34, 0.34, 0.34, 0.9)
 
 const PLAYER_SPRITE_SHEET := preload("res://assets/Wizzart_C.png")
 const ENEMY_SPRITE_SHEET := preload("res://assets/Orc_Big.png")
@@ -47,14 +66,37 @@ const ENEMY_SPRITE_SHEET := preload("res://assets/Orc_Big.png")
 @onready var skill_bar: Container = %SkillBar
 @onready var tooltip_label: RichTextLabel = %TooltipLabel
 @onready var popup_layer: Control = %PopupLayer
+@onready var reward_overlay: Control = get_node_or_null("%RewardOverlay") as Control
+@onready var reward_options: Container = get_node_or_null("%RewardOptions") as Container
+@onready var skip_reward_button: Button = get_node_or_null("%SkipRewardButton") as Button
+@onready var manage_equipment_button: Button = get_node_or_null("%ManageEquipmentButton") as Button
+@onready var equipment_overlay: Control = get_node_or_null("%EquipmentOverlay") as Control
+@onready var equipment_panel: PanelContainer = get_node_or_null("%EquipmentPanel") as PanelContainer
+@onready var equipped_panel: PanelContainer = get_node_or_null("%EquippedPanel") as PanelContainer
+@onready var reserve_panel: PanelContainer = get_node_or_null("%ReservePanel") as PanelContainer
+@onready var equipment_details_panel: PanelContainer = get_node_or_null("%EquipmentDetailsPanel") as PanelContainer
+@onready var equipped_slots: Container = get_node_or_null("%EquippedSlots") as Container
+@onready var reserve_items: Container = get_node_or_null("%ReserveItems") as Container
+@onready var equipment_details_label: RichTextLabel = get_node_or_null("%EquipmentDetailsLabel") as RichTextLabel
+@onready var equip_selected_button: Button = get_node_or_null("%EquipSelectedButton") as Button
+@onready var unequip_selected_button: Button = get_node_or_null("%UnequipSelectedButton") as Button
+@onready var close_equipment_button: Button = get_node_or_null("%CloseEquipmentButton") as Button
 
 var log_lines: Array[String] = []
 var has_unit_ui := false
 var player_hp_tween: Tween
 var enemy_hp_tween: Tween
+var reward_choice_pending := false
+var selected_reserve_index := -1
+var selected_equipped_slot := -1
+var selected_equipment_item: EquipmentData
+var equipment_panel_equipped: Dictionary = {}
+var selected_equipment_button: Button
+var restore_reward_after_equipment := false
 
 func _ready() -> void:
 	_setup_fx_layer()
+	_setup_equipment_panel_styles()
 	_setup_battlers()
 	battler_stage.resized.connect(_position_battlers)
 	call_deferred("_position_battlers")
@@ -62,6 +104,16 @@ func _ready() -> void:
 	_hide_tooltip()
 	attack_button.pressed.connect(_on_attack_button_pressed)
 	defend_button.pressed.connect(_on_defend_button_pressed)
+	if skip_reward_button != null:
+		skip_reward_button.pressed.connect(_on_skip_reward_button_pressed)
+	if manage_equipment_button != null:
+		manage_equipment_button.pressed.connect(func(): equipment_manage_requested.emit())
+	if equip_selected_button != null:
+		equip_selected_button.pressed.connect(_on_equip_selected_button_pressed)
+	if unequip_selected_button != null:
+		unequip_selected_button.pressed.connect(_on_unequip_selected_button_pressed)
+	if close_equipment_button != null:
+		close_equipment_button.pressed.connect(hide_equipment_panel)
 
 func _on_attack_button_pressed() -> void:
 	_pulse_button(attack_button)
@@ -70,6 +122,22 @@ func _on_attack_button_pressed() -> void:
 func _on_defend_button_pressed() -> void:
 	_pulse_button(defend_button)
 	defend_pressed.emit()
+
+func _on_skip_reward_button_pressed() -> void:
+	hide_equipment_rewards()
+	reward_skipped.emit()
+
+func _on_equip_selected_button_pressed() -> void:
+	if selected_reserve_index < 0:
+		return
+
+	reserve_equipment_equip_requested.emit(selected_reserve_index)
+
+func _on_unequip_selected_button_pressed() -> void:
+	if selected_equipped_slot < 0:
+		return
+
+	equipment_slot_unequip_requested.emit(selected_equipped_slot)
 
 func set_turn_text(text: String) -> void:
 	turn_label.text = text
@@ -103,6 +171,22 @@ func _setup_fx_layer() -> void:
 	fx_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
 	battler_stage.add_child(fx_layer)
 	battler_stage.move_child(fx_layer, battler_stage.get_child_count() - 1)
+
+func _setup_equipment_panel_styles() -> void:
+	if equipment_panel != null:
+		equipment_panel.add_theme_stylebox_override("panel", _create_panel_style(EQUIPMENT_PANEL_COLOR, Color(0.62, 0.62, 0.62, 0.95), 1, 8))
+
+	for panel in [equipped_panel, reserve_panel, equipment_details_panel]:
+		if panel != null:
+			panel.add_theme_stylebox_override("panel", _create_panel_style(EQUIPMENT_SECTION_COLOR, EQUIPMENT_SECTION_BORDER_COLOR, 1, 8))
+
+func _create_panel_style(background_color: Color, border_color: Color, border_width: int, radius: int) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = background_color
+	style.border_color = border_color
+	style.set_border_width_all(border_width)
+	style.set_corner_radius_all(radius)
+	return style
 
 func present_player_turn_started() -> void:
 	emphasize_turn(TARGET_PLAYER)
@@ -140,6 +224,318 @@ func present_battle_result(player_won: bool) -> void:
 	else:
 		set_turn_text("Defeat")
 		set_log_text("Player lost.")
+
+func show_equipment_rewards(rewards, equipped_items: Dictionary) -> void:
+	if reward_overlay == null or reward_options == null:
+		return
+
+	reward_choice_pending = false
+
+	for child in reward_options.get_children():
+		child.queue_free()
+
+	for i in range(rewards.size()):
+		var item: EquipmentData = rewards[i]
+		reward_options.add_child(_create_reward_card(item, equipped_items, i))
+
+	reward_overlay.visible = true
+
+func hide_equipment_rewards() -> void:
+	if reward_overlay != null:
+		reward_overlay.visible = false
+	restore_reward_after_equipment = false
+
+func show_equipment_panel(equipped_items: Dictionary, reserve_inventory: Array[EquipmentData]) -> void:
+	if equipment_overlay == null:
+		return
+
+	var was_open := equipment_overlay.visible
+	if not was_open:
+		restore_reward_after_equipment = reward_overlay != null and reward_overlay.visible
+
+	if reward_overlay != null:
+		reward_overlay.visible = false
+
+	equipment_panel_equipped = equipped_items
+	selected_reserve_index = -1
+	selected_equipped_slot = -1
+	selected_equipment_item = null
+	selected_equipment_button = null
+	_render_equipped_slots(equipped_items)
+	_render_reserve_inventory(reserve_inventory)
+	_set_equipment_details(null, -1, -1, null)
+	equipment_overlay.visible = true
+
+func hide_equipment_panel() -> void:
+	if equipment_overlay != null:
+		equipment_overlay.visible = false
+
+	if restore_reward_after_equipment and reward_overlay != null:
+		reward_overlay.visible = true
+
+	restore_reward_after_equipment = false
+
+func _render_equipped_slots(equipped_items: Dictionary) -> void:
+	if equipped_slots == null:
+		return
+
+	for child in equipped_slots.get_children():
+		child.queue_free()
+
+	_add_equipped_slot_button(EquipmentData.SlotType.WEAPON, "Weapon", equipped_items)
+	_add_equipped_slot_button(EquipmentData.SlotType.ARMOR, "Armor", equipped_items)
+	_add_equipped_slot_button(EquipmentData.SlotType.ACCESSORY, "Accessory", equipped_items)
+
+func _add_equipped_slot_button(slot_type: int, slot_name: String, equipped_items: Dictionary) -> void:
+	var item: EquipmentData = equipped_items.get(slot_type, null) as EquipmentData
+	var item_name := item.item_name if item != null else "Empty"
+	var button := _create_equipment_row_button("%s\n%s" % [slot_name, item_name])
+	button.pressed.connect(_set_equipment_details.bind(item, slot_type, -1, button))
+	equipped_slots.add_child(button)
+
+func _render_reserve_inventory(reserve_inventory: Array[EquipmentData]) -> void:
+	if reserve_items == null:
+		return
+
+	for child in reserve_items.get_children():
+		child.queue_free()
+
+	if reserve_inventory.is_empty():
+		var empty_center := CenterContainer.new()
+		empty_center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		var empty_label := Label.new()
+		empty_label.text = "No reserve equipment."
+		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		empty_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		empty_label.modulate = Color(0.72, 0.72, 0.72)
+		empty_center.add_child(empty_label)
+		reserve_items.add_child(empty_center)
+		return
+
+	for i in range(reserve_inventory.size()):
+		var item := reserve_inventory[i]
+		var button := _create_equipment_row_button("%s\n%s" % [item.item_name, item.get_slot_name()])
+		button.pressed.connect(_set_equipment_details.bind(item, -1, i, button))
+		reserve_items.add_child(button)
+
+func _set_equipment_details(item: EquipmentData, equipped_slot: int, reserve_index: int, source_button: Button = null) -> void:
+	selected_equipment_item = item
+	selected_equipped_slot = equipped_slot
+	selected_reserve_index = reserve_index
+	_select_equipment_button(source_button)
+
+	if equipment_details_label == null:
+		return
+
+	if item == null:
+		if equipped_slot >= 0:
+			equipment_details_label.text = "[b]%s[/b]\n\nThis slot is empty." % _get_equipment_slot_name(equipped_slot)
+		else:
+			equipment_details_label.text = "Select equipment to inspect."
+		_update_equipment_action_buttons()
+		return
+
+	var lines: Array[String] = [
+		"[font_size=20][b]%s[/b][/font_size]" % item.item_name,
+		"[color=gray]%s[/color]" % item.get_slot_name(),
+		"",
+		item.description,
+		"",
+		"[b]Bonuses[/b]",
+		"[color=light_green]%s[/color]" % item.get_bonus_summary()
+	]
+	var current_item: EquipmentData = equipment_panel_equipped.get(item.slot_type, null) as EquipmentData
+
+	if current_item != null and current_item != item:
+		lines.append("")
+		lines.append("Currently equipped: %s" % current_item.item_name)
+		lines.append(_get_equipment_comparison_text(item, current_item))
+
+	equipment_details_label.text = "\n".join(lines)
+	_update_equipment_action_buttons()
+
+func _update_equipment_action_buttons() -> void:
+	if equip_selected_button != null:
+		equip_selected_button.visible = selected_reserve_index >= 0
+		equip_selected_button.disabled = selected_reserve_index < 0
+
+	if unequip_selected_button != null:
+		unequip_selected_button.visible = selected_equipped_slot >= 0 and selected_equipment_item != null
+		unequip_selected_button.disabled = selected_equipped_slot < 0 or selected_equipment_item == null
+
+func _create_equipment_row_button(text: String) -> Button:
+	var button := Button.new()
+	button.custom_minimum_size = Vector2(0, 52)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.text = text
+	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	_apply_equipment_button_style(button, EQUIPMENT_ROW_NORMAL_COLOR, EQUIPMENT_ROW_BORDER_COLOR, 1)
+	button.mouse_entered.connect(_on_equipment_row_hovered.bind(button, true))
+	button.mouse_exited.connect(_on_equipment_row_hovered.bind(button, false))
+	return button
+
+func _on_equipment_row_hovered(button: Button, hovered: bool) -> void:
+	if button == selected_equipment_button:
+		return
+
+	if hovered:
+		_apply_equipment_button_style(button, EQUIPMENT_ROW_HOVER_COLOR, EQUIPMENT_ROW_BORDER_COLOR, 1)
+	else:
+		_apply_equipment_button_style(button, EQUIPMENT_ROW_NORMAL_COLOR, EQUIPMENT_ROW_BORDER_COLOR, 1)
+
+func _select_equipment_button(button: Button) -> void:
+	if selected_equipment_button != null and is_instance_valid(selected_equipment_button):
+		_apply_equipment_button_style(selected_equipment_button, EQUIPMENT_ROW_NORMAL_COLOR, EQUIPMENT_ROW_BORDER_COLOR, 1)
+
+	selected_equipment_button = button
+
+	if selected_equipment_button != null:
+		_apply_equipment_button_style(selected_equipment_button, EQUIPMENT_ROW_SELECTED_COLOR, EQUIPMENT_ROW_SELECTED_BORDER_COLOR, 2)
+
+func _apply_equipment_button_style(button: Button, background_color: Color, border_color: Color, border_width: int) -> void:
+	var style := _create_equipment_row_style(background_color, border_color, border_width)
+	var hover_color := background_color if background_color == EQUIPMENT_ROW_SELECTED_COLOR else EQUIPMENT_ROW_HOVER_COLOR
+	button.add_theme_stylebox_override("normal", style)
+	button.add_theme_stylebox_override("hover", _create_equipment_row_style(hover_color, border_color, border_width))
+	button.add_theme_stylebox_override("pressed", _create_equipment_row_style(EQUIPMENT_ROW_SELECTED_COLOR, EQUIPMENT_ROW_SELECTED_BORDER_COLOR, 2))
+
+func _create_equipment_row_style(background_color: Color, border_color: Color, border_width: int) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = background_color
+	style.border_color = border_color
+	style.set_border_width_all(border_width)
+	style.set_corner_radius_all(6)
+	style.set_content_margin(SIDE_LEFT, 10)
+	style.set_content_margin(SIDE_RIGHT, 10)
+	style.set_content_margin(SIDE_TOP, 6)
+	style.set_content_margin(SIDE_BOTTOM, 6)
+	return style
+
+func _get_equipment_slot_name(slot_type: int) -> String:
+	match slot_type:
+		EquipmentData.SlotType.WEAPON:
+			return "Weapon"
+		EquipmentData.SlotType.ARMOR:
+			return "Armor"
+		EquipmentData.SlotType.ACCESSORY:
+			return "Accessory"
+		_:
+			return "Equipment"
+
+func _get_equipment_comparison_text(item: EquipmentData, current_item: EquipmentData) -> String:
+	var diffs: Array[String] = []
+	_add_equipment_diff(diffs, "Max HP", item.max_hp_bonus - current_item.max_hp_bonus)
+	_add_equipment_diff(diffs, "ATK", item.atk_bonus - current_item.atk_bonus)
+	_add_equipment_diff(diffs, "DEF", item.def_bonus - current_item.def_bonus)
+	_add_equipment_diff(diffs, "SPD", item.spd_bonus - current_item.spd_bonus)
+
+	if diffs.is_empty():
+		return "Stat change: none"
+
+	return "Stat change: %s" % ", ".join(diffs)
+
+func _add_equipment_diff(diffs: Array[String], stat_name: String, value: int) -> void:
+	if value == 0:
+		return
+
+	var sign := "+" if value > 0 else ""
+	diffs.append("%s%s %s" % [sign, value, stat_name])
+
+func _on_reward_card_pressed(card: PanelContainer, reward_index: int) -> void:
+	if reward_choice_pending:
+		return
+
+	reward_choice_pending = true
+	card.add_theme_stylebox_override("panel", _create_reward_card_style(REWARD_CARD_SELECTED_COLOR, REWARD_CARD_HOVER_BORDER_COLOR, 2))
+	card.scale = Vector2(1.03, 1.03)
+	await get_tree().create_timer(0.08).timeout
+	hide_equipment_rewards()
+	reward_selected.emit(reward_index)
+
+func _create_reward_card(item: EquipmentData, equipped_items: Dictionary, reward_index: int) -> PanelContainer:
+	var current_item: EquipmentData = equipped_items.get(item.slot_type, null) as EquipmentData
+	var card := PanelContainer.new()
+	card.custom_minimum_size = REWARD_CARD_SIZE
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card.mouse_filter = Control.MOUSE_FILTER_STOP
+	card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	card.add_theme_stylebox_override("panel", _create_reward_card_style(REWARD_CARD_NORMAL_COLOR, REWARD_CARD_BORDER_COLOR, 1))
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 14)
+	margin.add_theme_constant_override("margin_top", 12)
+	margin.add_theme_constant_override("margin_right", 14)
+	margin.add_theme_constant_override("margin_bottom", 12)
+	card.add_child(margin)
+
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 8)
+	margin.add_child(box)
+
+	var name_label := Label.new()
+	name_label.text = item.item_name
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_label.add_theme_font_size_override("font_size", 18)
+	box.add_child(name_label)
+
+	var slot_label := Label.new()
+	slot_label.text = item.get_slot_name()
+	slot_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	slot_label.modulate = Color(0.78, 0.78, 0.78)
+	box.add_child(slot_label)
+
+	var description_label := Label.new()
+	description_label.text = item.description
+	description_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	description_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	box.add_child(description_label)
+
+	var bonus_label := Label.new()
+	bonus_label.text = item.get_bonus_summary()
+	bonus_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	bonus_label.modulate = Color(0.72, 1.0, 0.72)
+	box.add_child(bonus_label)
+
+	var compare_label := Label.new()
+	if current_item != null:
+		compare_label.text = "Replaces: %s" % current_item.item_name
+	else:
+		compare_label.text = "Empty slot"
+	compare_label.modulate = Color(0.72, 0.72, 0.72)
+	box.add_child(compare_label)
+
+	card.mouse_entered.connect(_on_reward_card_hovered.bind(card, true))
+	card.mouse_exited.connect(_on_reward_card_hovered.bind(card, false))
+	card.gui_input.connect(_on_reward_card_gui_input.bind(card, reward_index))
+	return card
+
+func _on_reward_card_hovered(card: PanelContainer, hovered: bool) -> void:
+	if reward_choice_pending:
+		return
+
+	if hovered:
+		card.add_theme_stylebox_override("panel", _create_reward_card_style(REWARD_CARD_HOVER_COLOR, REWARD_CARD_HOVER_BORDER_COLOR, 2))
+		_tween_reward_card_scale(card, Vector2(1.035, 1.035))
+	else:
+		card.add_theme_stylebox_override("panel", _create_reward_card_style(REWARD_CARD_NORMAL_COLOR, REWARD_CARD_BORDER_COLOR, 1))
+		_tween_reward_card_scale(card, Vector2.ONE)
+
+func _on_reward_card_gui_input(event: InputEvent, card: PanelContainer, reward_index: int) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		_on_reward_card_pressed(card, reward_index)
+
+func _tween_reward_card_scale(card: PanelContainer, target_scale: Vector2) -> void:
+	var tween := create_tween()
+	tween.tween_property(card, "scale", target_scale, 0.08).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+
+func _create_reward_card_style(background_color: Color, border_color: Color, border_width: int) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = background_color
+	style.border_color = border_color
+	style.set_border_width_all(border_width)
+	style.set_corner_radius_all(8)
+	return style
 
 func play_player_attack() -> void:
 	await _play_battler_action(player_battler_sprite, "attack")
