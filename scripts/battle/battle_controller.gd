@@ -51,7 +51,6 @@ func _ready() -> void:
 func start_battle() -> void:
 	player = PlayerUnit.new(player_data)
 	enemy = EnemyUnit.new(enemy_data)
-
 	view.hide_equipment_rewards()
 	view.hide_equipment_panel()
 	view.build_skill_bar(player.get_skills())
