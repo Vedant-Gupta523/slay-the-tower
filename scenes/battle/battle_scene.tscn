@@ -48,61 +48,81 @@ text = "Battle Start"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="BattlerStage" type="Control" parent="MarginContainer/VBoxContainer"]
+[node name="MainArea" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 12
+
+[node name="BattleColumn" type="VBoxContainer" parent="MarginContainer/VBoxContainer/MainArea"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 12
+
+[node name="BattlerStage" type="Control" parent="MarginContainer/VBoxContainer/MainArea/BattleColumn"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 140)
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 
-[node name="PlayerBattlerRoot" type="Node2D" parent="MarginContainer/VBoxContainer/BattlerStage"]
+[node name="PlayerBattlerRoot" type="Node2D" parent="MarginContainer/VBoxContainer/MainArea/BattleColumn/BattlerStage"]
 unique_name_in_owner = true
 position = Vector2(160, 142)
 
-[node name="PlayerBattlerSprite" type="AnimatedSprite2D" parent="MarginContainer/VBoxContainer/BattlerStage/PlayerBattlerRoot"]
+[node name="PlayerBattlerSprite" type="AnimatedSprite2D" parent="MarginContainer/VBoxContainer/MainArea/BattleColumn/BattlerStage/PlayerBattlerRoot"]
 unique_name_in_owner = true
 texture_filter = 1
 scale = Vector2(2.5, 2.5)
 
-[node name="EnemyBattlerRoot" type="Node2D" parent="MarginContainer/VBoxContainer/BattlerStage"]
+[node name="EnemyBattlerRoot" type="Node2D" parent="MarginContainer/VBoxContainer/MainArea/BattleColumn/BattlerStage"]
 unique_name_in_owner = true
 position = Vector2(640, 142)
 
-[node name="EnemyBattlerSprite" type="AnimatedSprite2D" parent="MarginContainer/VBoxContainer/BattlerStage/EnemyBattlerRoot"]
+[node name="EnemyBattlerSprite" type="AnimatedSprite2D" parent="MarginContainer/VBoxContainer/MainArea/BattleColumn/BattlerStage/EnemyBattlerRoot"]
 unique_name_in_owner = true
 texture_filter = 1
 scale = Vector2(2.5, 2.5)
 
-[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
+[node name="FxLayer" type="Control" parent="MarginContainer/VBoxContainer/MainArea/BattleColumn/BattlerStage"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer/MainArea/BattleColumn"]
 layout_mode = 2
 theme_override_constants/separation = 24
 
-[node name="PlayerPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer/HBoxContainer"]
+[node name="PlayerPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer/MainArea/BattleColumn/HBoxContainer"]
 custom_minimum_size = Vector2(280, 112)
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="PlayerPanelMargin" type="MarginContainer" parent="MarginContainer/VBoxContainer/HBoxContainer/PlayerPanel"]
+[node name="PlayerPanelMargin" type="MarginContainer" parent="MarginContainer/VBoxContainer/MainArea/BattleColumn/HBoxContainer/PlayerPanel"]
 layout_mode = 2
 theme_override_constants/margin_left = 16
 theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 16
 theme_override_constants/margin_bottom = 10
 
-[node name="PlayerBox" type="VBoxContainer" parent="MarginContainer/VBoxContainer/HBoxContainer/PlayerPanel/PlayerPanelMargin"]
+[node name="PlayerBox" type="VBoxContainer" parent="MarginContainer/VBoxContainer/MainArea/BattleColumn/HBoxContainer/PlayerPanel/PlayerPanelMargin"]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="PlayerNameLabel" type="Label" parent="MarginContainer/VBoxContainer/HBoxContainer/PlayerPanel/PlayerPanelMargin/PlayerBox"]
+[node name="PlayerNameLabel" type="Label" parent="MarginContainer/VBoxContainer/MainArea/BattleColumn/HBoxContainer/PlayerPanel/PlayerPanelMargin/PlayerBox"]
 layout_mode = 2
 text = "Player"
 
-[node name="PlayerHpLabel" type="Label" parent="MarginContainer/VBoxContainer/HBoxContainer/PlayerPanel/PlayerPanelMargin/PlayerBox"]
+[node name="PlayerHpLabel" type="Label" parent="MarginContainer/VBoxContainer/MainArea/BattleColumn/HBoxContainer/PlayerPanel/PlayerPanelMargin/PlayerBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Player HP: 0/0"
 
-[node name="PlayerHpBar" type="ProgressBar" parent="MarginContainer/VBoxContainer/HBoxContainer/PlayerPanel/PlayerPanelMargin/PlayerBox"]
+[node name="PlayerHpBar" type="ProgressBar" parent="MarginContainer/VBoxContainer/MainArea/BattleColumn/HBoxContainer/PlayerPanel/PlayerPanelMargin/PlayerBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(220, 18)
 layout_mode = 2
@@ -111,43 +131,43 @@ max_value = 1.0
 value = 1.0
 show_percentage = false
 
-[node name="PlayerStatusSlot" type="CenterContainer" parent="MarginContainer/VBoxContainer/HBoxContainer/PlayerPanel/PlayerPanelMargin/PlayerBox"]
+[node name="PlayerStatusSlot" type="CenterContainer" parent="MarginContainer/VBoxContainer/MainArea/BattleColumn/HBoxContainer/PlayerPanel/PlayerPanelMargin/PlayerBox"]
 custom_minimum_size = Vector2(0, 24)
 layout_mode = 2
 
-[node name="PlayerStatusLabel" type="Label" parent="MarginContainer/VBoxContainer/HBoxContainer/PlayerPanel/PlayerPanelMargin/PlayerBox/PlayerStatusSlot"]
+[node name="PlayerStatusLabel" type="Label" parent="MarginContainer/VBoxContainer/MainArea/BattleColumn/HBoxContainer/PlayerPanel/PlayerPanelMargin/PlayerBox/PlayerStatusSlot"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
 text = "Defending"
 horizontal_alignment = 1
 
-[node name="EnemyPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer/HBoxContainer"]
+[node name="EnemyPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer/MainArea/BattleColumn/HBoxContainer"]
 custom_minimum_size = Vector2(280, 112)
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="EnemyPanelMargin" type="MarginContainer" parent="MarginContainer/VBoxContainer/HBoxContainer/EnemyPanel"]
+[node name="EnemyPanelMargin" type="MarginContainer" parent="MarginContainer/VBoxContainer/MainArea/BattleColumn/HBoxContainer/EnemyPanel"]
 layout_mode = 2
 theme_override_constants/margin_left = 16
 theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 16
 theme_override_constants/margin_bottom = 10
 
-[node name="EnemyBox" type="VBoxContainer" parent="MarginContainer/VBoxContainer/HBoxContainer/EnemyPanel/EnemyPanelMargin"]
+[node name="EnemyBox" type="VBoxContainer" parent="MarginContainer/VBoxContainer/MainArea/BattleColumn/HBoxContainer/EnemyPanel/EnemyPanelMargin"]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="EnemyNameLabel" type="Label" parent="MarginContainer/VBoxContainer/HBoxContainer/EnemyPanel/EnemyPanelMargin/EnemyBox"]
+[node name="EnemyNameLabel" type="Label" parent="MarginContainer/VBoxContainer/MainArea/BattleColumn/HBoxContainer/EnemyPanel/EnemyPanelMargin/EnemyBox"]
 layout_mode = 2
 text = "Enemy"
 
-[node name="EnemyHpLabel" type="Label" parent="MarginContainer/VBoxContainer/HBoxContainer/EnemyPanel/EnemyPanelMargin/EnemyBox"]
+[node name="EnemyHpLabel" type="Label" parent="MarginContainer/VBoxContainer/MainArea/BattleColumn/HBoxContainer/EnemyPanel/EnemyPanelMargin/EnemyBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Enemy HP: 0/0"
 
-[node name="EnemyHpBar" type="ProgressBar" parent="MarginContainer/VBoxContainer/HBoxContainer/EnemyPanel/EnemyPanelMargin/EnemyBox"]
+[node name="EnemyHpBar" type="ProgressBar" parent="MarginContainer/VBoxContainer/MainArea/BattleColumn/HBoxContainer/EnemyPanel/EnemyPanelMargin/EnemyBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(220, 18)
 layout_mode = 2
@@ -156,69 +176,101 @@ max_value = 1.0
 value = 1.0
 show_percentage = false
 
-[node name="EnemyStatusSlot" type="CenterContainer" parent="MarginContainer/VBoxContainer/HBoxContainer/EnemyPanel/EnemyPanelMargin/EnemyBox"]
+[node name="EnemyStatusSlot" type="CenterContainer" parent="MarginContainer/VBoxContainer/MainArea/BattleColumn/HBoxContainer/EnemyPanel/EnemyPanelMargin/EnemyBox"]
 custom_minimum_size = Vector2(0, 24)
 layout_mode = 2
 
-[node name="EnemyStatusLabel" type="Label" parent="MarginContainer/VBoxContainer/HBoxContainer/EnemyPanel/EnemyPanelMargin/EnemyBox/EnemyStatusSlot"]
+[node name="EnemyStatusLabel" type="Label" parent="MarginContainer/VBoxContainer/MainArea/BattleColumn/HBoxContainer/EnemyPanel/EnemyPanelMargin/EnemyBox/EnemyStatusSlot"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
 text = "Defending"
 horizontal_alignment = 1
 
-[node name="LogPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer"]
-custom_minimum_size = Vector2(400, 104)
+[node name="CommandPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer/MainArea/BattleColumn"]
 layout_mode = 2
 
-[node name="LogPanelMargin" type="MarginContainer" parent="MarginContainer/VBoxContainer/LogPanel"]
-layout_mode = 2
-theme_override_constants/margin_left = 12
-theme_override_constants/margin_top = 6
-theme_override_constants/margin_right = 12
-theme_override_constants/margin_bottom = 6
-
-[node name="LogLabel" type="RichTextLabel" parent="MarginContainer/VBoxContainer/LogPanel/LogPanelMargin"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(400, 88)
-layout_mode = 2
-text = "Log"
-scroll_following = true
-
-[node name="CommandPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer"]
-layout_mode = 2
-
-[node name="CommandPanelMargin" type="MarginContainer" parent="MarginContainer/VBoxContainer/CommandPanel"]
+[node name="CommandPanelMargin" type="MarginContainer" parent="MarginContainer/VBoxContainer/MainArea/BattleColumn/CommandPanel"]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 10
 
-[node name="CommandBox" type="VBoxContainer" parent="MarginContainer/VBoxContainer/CommandPanel/CommandPanelMargin"]
+[node name="CommandBox" type="VBoxContainer" parent="MarginContainer/VBoxContainer/MainArea/BattleColumn/CommandPanel/CommandPanelMargin"]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="Actions" type="HBoxContainer" parent="MarginContainer/VBoxContainer/CommandPanel/CommandPanelMargin/CommandBox"]
+[node name="Actions" type="HBoxContainer" parent="MarginContainer/VBoxContainer/MainArea/BattleColumn/CommandPanel/CommandPanelMargin/CommandBox"]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="AttackButton" type="Button" parent="MarginContainer/VBoxContainer/CommandPanel/CommandPanelMargin/CommandBox/Actions"]
+[node name="AttackButton" type="Button" parent="MarginContainer/VBoxContainer/MainArea/BattleColumn/CommandPanel/CommandPanelMargin/CommandBox/Actions"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(116, 34)
 layout_mode = 2
 text = "Attack"
 
-[node name="DefendButton" type="Button" parent="MarginContainer/VBoxContainer/CommandPanel/CommandPanelMargin/CommandBox/Actions"]
+[node name="DefendButton" type="Button" parent="MarginContainer/VBoxContainer/MainArea/BattleColumn/CommandPanel/CommandPanelMargin/CommandBox/Actions"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(116, 34)
 layout_mode = 2
 text = "Defend"
 
-[node name="SkillBar" type="HBoxContainer" parent="MarginContainer/VBoxContainer/CommandPanel/CommandPanelMargin/CommandBox"]
+[node name="SkillBar" type="HBoxContainer" parent="MarginContainer/VBoxContainer/MainArea/BattleColumn/CommandPanel/CommandPanelMargin/CommandBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 8
+
+[node name="LogPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer/MainArea"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(320, 0)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="LogPanelMargin" type="MarginContainer" parent="MarginContainer/VBoxContainer/MainArea/LogPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 10
+
+[node name="LogBox" type="VBoxContainer" parent="MarginContainer/VBoxContainer/MainArea/LogPanel/LogPanelMargin"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 10
+
+[node name="LogLabel" type="RichTextLabel" parent="MarginContainer/VBoxContainer/MainArea/LogPanel/LogPanelMargin/LogBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(292, 180)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+text = "Log"
+scroll_following = true
+
+[node name="TooltipPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer/MainArea/LogPanel/LogPanelMargin/LogBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(292, 128)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="TooltipMargin" type="MarginContainer" parent="MarginContainer/VBoxContainer/MainArea/LogPanel/LogPanelMargin/LogBox/TooltipPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="TooltipLabel" type="RichTextLabel" parent="MarginContainer/VBoxContainer/MainArea/LogPanel/LogPanelMargin/LogBox/TooltipPanel/TooltipMargin"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(272, 112)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+bbcode_enabled = true
+text = "Hover an action or skill for details. The last tooltip stays here so longer text can be scrolled."
 
 [node name="PopupLayer" type="Control" parent="."]
 unique_name_in_owner = true
