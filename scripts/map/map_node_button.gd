@@ -4,14 +4,11 @@ class_name MapNodeButton
 signal node_pressed(node_id: int)
 
 const TYPE_NAMES := {
-	&"start": "Start",
-	&"combat": "Combat",
-	&"elite": "Elite",
-	&"event": "Event",
-	&"shop": "Shop",
-	&"rest": "Rest",
-	&"treasure": "Treasure",
-	&"boss": "Boss",
+	MapNodeData.TYPE_COMBAT: "Combat",
+	MapNodeData.TYPE_ELITE: "Elite",
+	MapNodeData.TYPE_EVENT: "Event",
+	MapNodeData.TYPE_RESOURCE: "Resource",
+	MapNodeData.TYPE_BOSS: "Boss",
 }
 
 const OUTER_SHADOW_COLOR := Color(0.02, 0.03, 0.05, 0.38)
@@ -97,13 +94,13 @@ func _draw() -> void:
 
 func _draw_node_body(center: Vector2, radius: float, fill_color: Color, border_color: Color) -> void:
 	match node_data.node_type:
-		&"event":
+		MapNodeData.TYPE_EVENT:
 			_draw_diamond(center, radius + 2.0, border_color)
 			_draw_diamond(center, radius - 3.0, fill_color)
-		&"treasure":
+		MapNodeData.TYPE_RESOURCE:
 			_draw_hex(center, radius + 1.0, border_color)
 			_draw_hex(center, radius - 4.0, fill_color)
-		&"boss":
+		MapNodeData.TYPE_BOSS:
 			_draw_octagon(center, radius + 1.0, border_color)
 			_draw_octagon(center, radius - 4.0, fill_color)
 		_:
@@ -113,33 +110,22 @@ func _draw_node_body(center: Vector2, radius: float, fill_color: Color, border_c
 
 func _draw_node_icon(center: Vector2, radius: float, icon_color: Color) -> void:
 	match node_data.node_type:
-		&"start":
-			draw_circle(center, radius * 0.26, icon_color)
-			draw_arc(center, radius * 0.58, -PI * 0.05, PI * 1.05, 18, icon_color, 4.0)
-		&"combat":
+		MapNodeData.TYPE_COMBAT:
 			draw_line(center + Vector2(-radius * 0.38, -radius * 0.38), center + Vector2(radius * 0.34, radius * 0.34), icon_color, 5.0, true)
 			draw_line(center + Vector2(radius * 0.22, -radius * 0.5), center + Vector2(radius * 0.48, -radius * 0.24), icon_color, 5.0, true)
 			draw_line(center + Vector2(-radius * 0.28, radius * 0.44), center + Vector2(-radius * 0.52, radius * 0.18), icon_color, 5.0, true)
-		&"elite":
+		MapNodeData.TYPE_ELITE:
 			_draw_triangle(center + Vector2(0, -radius * 0.1), radius * 0.56, icon_color)
 			draw_circle(center + Vector2(0, radius * 0.26), radius * 0.12, Color(0.12, 0.09, 0.05, 0.95))
-		&"event":
+		MapNodeData.TYPE_EVENT:
 			draw_circle(center, radius * 0.18, icon_color)
 			draw_line(center + Vector2(0, radius * 0.3), center + Vector2(0, -radius * 0.18), icon_color, 4.0, true)
 			draw_arc(center, radius * 0.44, PI * 1.15, PI * 1.85, 12, icon_color, 4.0)
-		&"shop":
-			draw_rect(Rect2(center + Vector2(-radius * 0.35, -radius * 0.12), Vector2(radius * 0.7, radius * 0.44)), icon_color, true)
-			draw_line(center + Vector2(-radius * 0.42, -radius * 0.12), center + Vector2(radius * 0.42, -radius * 0.12), _get_type_fill_color(node_data.node_type), 3.0, true)
-			draw_line(center + Vector2(-radius * 0.22, -radius * 0.38), center + Vector2(radius * 0.22, -radius * 0.38), icon_color, 4.0, true)
-		&"rest":
-			draw_circle(center + Vector2(-radius * 0.1, 0), radius * 0.24, icon_color)
-			draw_circle(center + Vector2(radius * 0.12, -radius * 0.05), radius * 0.18, icon_color)
-			draw_circle(center + Vector2(radius * 0.24, radius * 0.1), radius * 0.14, icon_color)
-		&"treasure":
+		MapNodeData.TYPE_RESOURCE:
 			draw_rect(Rect2(center + Vector2(-radius * 0.34, -radius * 0.06), Vector2(radius * 0.68, radius * 0.38)), icon_color, true)
 			draw_line(center + Vector2(-radius * 0.34, -radius * 0.06), center + Vector2(radius * 0.34, -radius * 0.06), _get_type_fill_color(node_data.node_type), 4.0, true)
 			draw_circle(center + Vector2(0, radius * 0.1), radius * 0.08, _get_type_fill_color(node_data.node_type))
-		&"boss":
+		MapNodeData.TYPE_BOSS:
 			_draw_triangle(center + Vector2(0, -radius * 0.08), radius * 0.62, icon_color)
 			draw_line(center + Vector2(-radius * 0.16, radius * 0.42), center + Vector2(radius * 0.16, radius * 0.42), icon_color, 4.0, true)
 
@@ -185,11 +171,11 @@ func _draw_octagon(center: Vector2, radius: float, color: Color) -> void:
 
 func _get_radius_scale(node_type: StringName) -> float:
 	match node_type:
-		&"boss":
+		MapNodeData.TYPE_BOSS:
 			return 0.39
-		&"elite":
+		MapNodeData.TYPE_ELITE:
 			return 0.35
-		&"treasure":
+		MapNodeData.TYPE_RESOURCE:
 			return 0.34
 		_:
 			return 0.32
@@ -197,21 +183,15 @@ func _get_radius_scale(node_type: StringName) -> float:
 
 func _get_type_fill_color(node_type: StringName) -> Color:
 	match node_type:
-		&"start":
-			return Color(0.22, 0.55, 0.58)
-		&"combat":
+		MapNodeData.TYPE_COMBAT:
 			return Color(0.7, 0.24, 0.2)
-		&"elite":
+		MapNodeData.TYPE_ELITE:
 			return Color(0.76, 0.38, 0.12)
-		&"event":
+		MapNodeData.TYPE_EVENT:
 			return Color(0.28, 0.38, 0.68)
-		&"shop":
-			return Color(0.22, 0.56, 0.34)
-		&"rest":
-			return Color(0.18, 0.58, 0.64)
-		&"treasure":
+		MapNodeData.TYPE_RESOURCE:
 			return Color(0.78, 0.6, 0.16)
-		&"boss":
+		MapNodeData.TYPE_BOSS:
 			return Color(0.48, 0.15, 0.16)
 		_:
 			return Color(0.34, 0.36, 0.4)
@@ -219,11 +199,11 @@ func _get_type_fill_color(node_type: StringName) -> Color:
 
 func _get_type_border_color(node_type: StringName) -> Color:
 	match node_type:
-		&"elite":
+		MapNodeData.TYPE_ELITE:
 			return Color(1.0, 0.8, 0.45)
-		&"treasure":
+		MapNodeData.TYPE_RESOURCE:
 			return Color(1.0, 0.88, 0.52)
-		&"boss":
+		MapNodeData.TYPE_BOSS:
 			return Color(1.0, 0.75, 0.56)
 		_:
 			return Color(0.91, 0.95, 0.98, 0.95)
@@ -231,10 +211,8 @@ func _get_type_border_color(node_type: StringName) -> Color:
 
 func _get_icon_color(node_type: StringName) -> Color:
 	match node_type:
-		&"treasure", &"shop":
+		MapNodeData.TYPE_RESOURCE:
 			return Color(0.15, 0.13, 0.08)
-		&"rest":
-			return Color(0.92, 0.98, 1.0)
 		_:
 			return Color(0.96, 0.97, 0.98)
 

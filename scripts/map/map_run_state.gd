@@ -15,6 +15,7 @@ func has_active_run() -> bool:
 
 func create_new_run(generator: MapGenerator, config: Dictionary = {}, seed: int = 0) -> MapRunData:
 	run_data = generator.generate_run(seed, config)
+	run_data.initialize_node_visibility()
 	pending_node_id = -1
 	emit_signal("run_started", run_data)
 	emit_signal("run_updated", run_data)
@@ -23,6 +24,8 @@ func create_new_run(generator: MapGenerator, config: Dictionary = {}, seed: int 
 
 func set_run_data(value: MapRunData) -> void:
 	run_data = value
+	if run_data != null:
+		run_data.initialize_node_visibility()
 	pending_node_id = -1
 	emit_signal("run_updated", run_data)
 
@@ -47,11 +50,26 @@ func get_reachable_node_ids() -> Array[int]:
 	if not has_active_run():
 		return []
 
-	return run_data.get_reachable_node_ids(run_data.current_node_id)
+	return run_data.get_available_node_ids()
 
 
 func can_travel_to(node_id: int) -> bool:
 	return has_active_run() and run_data.can_travel_to(node_id)
+
+
+func should_resolve_node(node_id: int) -> bool:
+	return has_active_run() and run_data.can_travel_to(node_id) and run_data.should_resolve_node(node_id)
+
+
+func move_to_node(node_id: int) -> bool:
+	if not has_active_run():
+		return false
+
+	var moved := run_data.move_to_node(node_id)
+	if moved:
+		emit_signal("run_updated", run_data)
+
+	return moved
 
 
 func mark_node_visited(node_id: int) -> bool:
@@ -105,6 +123,10 @@ func to_save_dict() -> Dictionary:
 			"node_type": String(node.node_type),
 			"connected_to": node.connected_to.duplicate(),
 			"visited": node.visited,
+			"is_discovered": node.is_discovered,
+			"is_visible": node.is_visible,
+			"is_completed": node.is_completed,
+			"is_available": node.is_available,
 		})
 
 	save_data["nodes"] = node_entries
@@ -123,13 +145,18 @@ func load_from_save_dict(save_data: Dictionary) -> void:
 		node.id = int(node_entry.get("id", -1))
 		node.row = int(node_entry.get("row", 0))
 		node.position = node_entry.get("position", Vector2.ZERO)
-		node.node_type = StringName(node_entry.get("node_type", "combat"))
+		node.node_type = MapNodeData.normalize_node_type(StringName(node_entry.get("node_type", MapNodeData.TYPE_COMBAT)))
 		node.connected_to.clear()
 		for target_id in node_entry.get("connected_to", []):
 			node.connected_to.append(int(target_id))
 		node.visited = bool(node_entry.get("visited", false))
+		node.is_discovered = bool(node_entry.get("is_discovered", node.visited))
+		node.is_visible = bool(node_entry.get("is_visible", false))
+		node.is_completed = bool(node_entry.get("is_completed", node.visited))
+		node.is_available = bool(node_entry.get("is_available", false))
 		loaded_run.nodes.append(node)
 
 	run_data = loaded_run
+	run_data.refresh_node_visibility()
 	pending_node_id = -1
 	emit_signal("run_updated", run_data)

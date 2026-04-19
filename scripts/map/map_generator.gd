@@ -1,14 +1,11 @@
 extends RefCounted
 class_name MapGenerator
 
-const TYPE_START := &"start"
-const TYPE_COMBAT := &"combat"
-const TYPE_ELITE := &"elite"
-const TYPE_EVENT := &"event"
-const TYPE_SHOP := &"shop"
-const TYPE_REST := &"rest"
-const TYPE_TREASURE := &"treasure"
-const TYPE_BOSS := &"boss"
+const TYPE_COMBAT := MapNodeData.TYPE_COMBAT
+const TYPE_ELITE := MapNodeData.TYPE_ELITE
+const TYPE_EVENT := MapNodeData.TYPE_EVENT
+const TYPE_RESOURCE := MapNodeData.TYPE_RESOURCE
+const TYPE_BOSS := MapNodeData.TYPE_BOSS
 
 const DEFAULT_MIN_NODE_GAP := 92.0
 const DEFAULT_ROW_VERTICAL_JITTER := 18.0
@@ -81,6 +78,10 @@ func generate_run(seed: int = 0, config: Dictionary = {}) -> MapRunData:
 			node.position = row_positions[column_index]
 			node.node_type = TYPE_COMBAT
 			node.visited = false
+			node.is_discovered = false
+			node.is_completed = false
+			node.is_visible = false
+			node.is_available = false
 			row_nodes.append(node)
 			run.nodes.append(node)
 			next_node_id += 1
@@ -461,7 +462,7 @@ func _assign_node_types(
 	rows: Array[Array],
 	config: Dictionary
 ) -> void:
-	rows[0][0].node_type = TYPE_START
+	rows[0][0].node_type = TYPE_COMBAT
 	rows[rows.size() - 1][0].node_type = TYPE_BOSS
 
 	for row_index in range(1, rows.size() - 1):
@@ -479,23 +480,21 @@ func _pick_node_type(
 		TYPE_COMBAT: int(config.get("combat_weight", 55)),
 		TYPE_EVENT: int(config.get("event_weight", 22)),
 		TYPE_ELITE: int(config.get("elite_weight", 10)),
-		TYPE_SHOP: int(config.get("shop_weight", 6)),
-		TYPE_REST: int(config.get("rest_weight", 5)),
-		TYPE_TREASURE: int(config.get("treasure_weight", 2)),
+		TYPE_RESOURCE: int(config.get("resource_weight", 13)),
 	}
 
 	if bool(config.get("prevent_consecutive_safe_nodes", true)):
 		var parent_nodes: Array[MapNodeData] = _get_parent_nodes(run, node.id)
-		var all_parents_safe: bool = not parent_nodes.is_empty()
+		var all_parents_non_combat: bool = not parent_nodes.is_empty()
 
 		for parent in parent_nodes:
-			if parent.node_type != TYPE_SHOP and parent.node_type != TYPE_REST:
-				all_parents_safe = false
+			if parent.node_type == TYPE_COMBAT or parent.node_type == TYPE_ELITE:
+				all_parents_non_combat = false
 				break
 
-		if all_parents_safe:
-			weights[TYPE_SHOP] = 0
-			weights[TYPE_REST] = 0
+		if all_parents_non_combat:
+			weights[TYPE_EVENT] = 0
+			weights[TYPE_RESOURCE] = 0
 
 	var total_weight: int = 0
 	for weight_value in weights.values():

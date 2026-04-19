@@ -16,7 +16,7 @@ signal start_dungeon_requested
 @onready var service_title_label: Label = %ServiceTitleLabel
 @onready var service_body_label: Label = %ServiceBodyLabel
 
-var player_profile: PlayerProfileData
+var expedition_state
 
 
 func _ready() -> void:
@@ -26,31 +26,65 @@ func _ready() -> void:
 	librarian_button.pressed.connect(_show_placeholder.bind("Librarian", "Manage skill books and research. TODO."))
 	quest_board_button.pressed.connect(_show_placeholder.bind("Quest Board", "Choose objectives and claims. TODO."))
 	_show_placeholder("Welcome", "Prepare for the next dungeon run.")
-	_refresh_profile_summary()
+	_refresh_expedition_summary()
 
 
 func set_player_profile(profile: PlayerProfileData) -> void:
-	player_profile = profile
+	if expedition_state == null:
+		expedition_state = profile
 	if is_node_ready():
-		_refresh_profile_summary()
+		_refresh_expedition_summary()
 
 
-func _refresh_profile_summary() -> void:
-	if player_profile == null:
+func set_expedition_state(state) -> void:
+	expedition_state = state
+	if is_node_ready():
+		_refresh_expedition_summary()
+
+
+func _refresh_expedition_summary() -> void:
+	if expedition_state == null:
 		gold_label.text = "Gold: 0"
 		monster_materials_label.text = "Monster Materials: 0"
 		ores_label.text = "Ores: 0"
 		herbs_label.text = "Herbs: 0"
-		streak_label.text = "Streak: 0"
+		start_dungeon_button.text = "Start Expedition"
+		streak_label.text = "Expedition: Not started"
 		return
 
-	gold_label.text = "Gold: %d" % player_profile.gold
-	monster_materials_label.text = "Monster Materials: %d" % player_profile.monster_materials
-	ores_label.text = "Ores: %d" % player_profile.ores
-	herbs_label.text = "Herbs: %d" % player_profile.herbs
-	streak_label.text = "Streak: %d" % player_profile.current_streak
+	gold_label.text = "Gold: %d" % _get_state_value("gold", 0)
+	monster_materials_label.text = "Monster Materials: %d" % _get_state_value("monster_materials", 0)
+	ores_label.text = "Ores: %d" % _get_state_value("ores", 0)
+	herbs_label.text = "Herbs: %d" % _get_state_value("herbs", 0)
+
+	if _get_state_value("is_active", false):
+		start_dungeon_button.text = "Enter Dungeon %d" % _get_state_value("dungeon_index", 0)
+		streak_label.text = "Dungeon: %d/%d" % [
+			_get_state_value("dungeon_index", 0),
+			_get_state_value("max_dungeons", 10),
+		]
+	elif _get_state_value("is_complete", false):
+		start_dungeon_button.text = "Start Expedition"
+		streak_label.text = "Expedition: Complete"
+	elif _get_state_value("is_failed", false):
+		start_dungeon_button.text = "Start Expedition"
+		streak_label.text = "Expedition: Failed"
+	else:
+		start_dungeon_button.text = "Start Expedition"
+		streak_label.text = "Expedition: Not started"
 
 
 func _show_placeholder(title: String, body: String) -> void:
 	service_title_label.text = title
 	service_body_label.text = body
+
+
+func _get_state_value(property_name: StringName, fallback: Variant) -> Variant:
+	if expedition_state == null:
+		return fallback
+
+	var value: Variant = expedition_state.get(property_name)
+	if value == null:
+		return fallback
+
+	return value

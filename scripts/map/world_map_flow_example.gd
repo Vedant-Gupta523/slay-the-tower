@@ -15,19 +15,15 @@ func _ready() -> void:
 
 func _on_world_map_node_selected(node_data: MapNodeData) -> void:
 	match node_data.node_type:
-		&"combat":
+		MapNodeData.TYPE_COMBAT:
 			_enter_combat(node_data)
-		&"elite":
+		MapNodeData.TYPE_ELITE:
 			_enter_elite_combat(node_data)
-		&"event":
+		MapNodeData.TYPE_EVENT:
 			_open_event(node_data)
-		&"shop":
-			_open_shop(node_data)
-		&"rest":
-			_open_rest(node_data)
-		&"treasure":
-			_open_treasure(node_data)
-		&"boss":
+		MapNodeData.TYPE_RESOURCE:
+			_open_resource(node_data)
+		MapNodeData.TYPE_BOSS:
 			_enter_boss(node_data)
 		_:
 			print("Unhandled node type: %s" % node_data.node_type)
@@ -45,16 +41,8 @@ func _open_event(node_data: MapNodeData) -> void:
 	print("Open event scene for node %d." % node_data.id)
 
 
-func _open_shop(node_data: MapNodeData) -> void:
-	print("Open shop scene for node %d." % node_data.id)
-
-
-func _open_rest(node_data: MapNodeData) -> void:
-	print("Open rest scene for node %d." % node_data.id)
-
-
-func _open_treasure(node_data: MapNodeData) -> void:
-	print("Open treasure reward scene for node %d." % node_data.id)
+func _open_resource(node_data: MapNodeData) -> void:
+	print("Grant resource reward for node %d." % node_data.id)
 
 
 func _enter_boss(node_data: MapNodeData) -> void:

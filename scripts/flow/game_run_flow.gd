@@ -26,7 +26,7 @@ var _active_battle_node_type: StringName = &""
 
 
 func _ready() -> void:
-	_ensure_player_profile()
+	_ensure_expedition_state()
 	_ensure_player_unit()
 	inventory_button.pressed.connect(_on_inventory_button_pressed)
 	skills_button.pressed.connect(_on_skills_button_pressed)
@@ -39,7 +39,7 @@ func _ready() -> void:
 
 func _open_main_base() -> void:
 	var main_base := main_base_scene.instantiate() as MainBaseController
-	main_base.set_player_profile(get_player_profile())
+	main_base.set_expedition_state(ExpeditionState)
 	_switch_to_instance(main_base)
 	_main_base_controller = main_base
 	_world_map_controller = null
@@ -66,7 +66,7 @@ func _open_world_map(create_run_if_missing: bool = false) -> void:
 	world_map.node_selected.connect(_on_world_map_node_selected)
 
 	if create_run_if_missing and not map_run_state.has_active_run():
-		world_map.start_new_run(initial_seed)
+		world_map.start_new_run(_get_current_dungeon_seed())
 	else:
 		world_map.refresh()
 
@@ -114,6 +114,15 @@ func _switch_to_instance(instance: Node) -> void:
 
 
 func _on_main_base_start_dungeon_requested() -> void:
+	_start_or_continue_expedition_dungeon()
+
+
+func _start_or_continue_expedition_dungeon() -> void:
+	_ensure_player_unit()
+	ExpeditionState.start_or_continue(player_unit_data)
+	if _player_unit != null:
+		ExpeditionState.apply_to_player_unit(_player_unit)
+
 	map_run_state.clear_run()
 	_open_world_map(true)
 
@@ -123,8 +132,8 @@ func _ensure_player_unit() -> void:
 		return
 
 	_player_unit = PlayerUnit.new(player_unit_data)
-	if player_profile != null:
-		player_profile.apply_to_player_unit(_player_unit)
+	if ExpeditionState.is_active:
+		ExpeditionState.apply_to_player_unit(_player_unit)
 
 
 func _ensure_player_profile() -> void:
@@ -134,16 +143,22 @@ func _ensure_player_profile() -> void:
 	player_profile.initialize_from_unit_data(player_unit_data)
 
 
+func _ensure_expedition_state() -> void:
+	ExpeditionState.initialize_from_unit_data(player_unit_data)
+
+
 func get_player_profile() -> PlayerProfileData:
 	_ensure_player_profile()
 	return player_profile
 
 
 func _sync_profile_from_player() -> void:
-	if player_profile == null or _player_unit == null:
+	if _player_unit == null:
 		return
 
-	player_profile.capture_from_player_unit(_player_unit)
+	ExpeditionState.capture_from_player_unit(_player_unit)
+	if player_profile != null:
+		player_profile.capture_from_player_unit(_player_unit)
 
 
 func _set_inventory_button_visible(is_visible: bool) -> void:
@@ -211,26 +226,43 @@ func _on_skill_screen_unequip_slot_requested(slot_index: int) -> void:
 
 
 func _on_world_map_node_selected(node_data: MapNodeData) -> void:
-	map_run_state.set_pending_node(node_data.id)
+	if not map_run_state.should_resolve_node(node_data.id):
+		map_run_state.move_to_node(node_data.id)
+		return
 
+	map_run_state.set_pending_node(node_data.id)
+	_resolve_map_node(node_data)
+
+
+func _resolve_map_node(node_data: MapNodeData) -> void:
 	match node_data.node_type:
-		&"combat", &"elite", &"boss":
+		MapNodeData.TYPE_COMBAT, MapNodeData.TYPE_ELITE, MapNodeData.TYPE_BOSS:
 			_open_battle_for_node(node_data)
-		_:
-			map_run_state.commit_pending_node()
-			print("Resolved non-battle node type: %s" % String(node_data.node_type))
-			if _world_map_controller != null:
-				_world_map_controller.refresh()
+		MapNodeData.TYPE_RESOURCE:
+			_resolve_resource_node(node_data)
+		MapNodeData.TYPE_EVENT:
+			_resolve_event_node(node_data)
+
+
+func _resolve_resource_node(_node_data: MapNodeData) -> void:
+	ExpeditionState.add_resource(ExpeditionState.RESOURCE_MONSTER_MATERIALS, 1)
+	map_run_state.commit_pending_node()
+	if _world_map_controller != null:
+		_world_map_controller.refresh()
+
+
+func _resolve_event_node(node_data: MapNodeData) -> void:
+	map_run_state.commit_pending_node()
+	print("Event node placeholder resolved: %d" % node_data.id)
+	if _world_map_controller != null:
+		_world_map_controller.refresh()
 
 
 func _on_battle_won() -> void:
 	_sync_profile_from_player()
 	map_run_state.commit_pending_node()
-	if _active_battle_node_type == &"boss":
-		if player_profile != null:
-			player_profile.increment_streak()
-		map_run_state.clear_run()
-		_open_main_base()
+	if _active_battle_node_type == MapNodeData.TYPE_BOSS:
+		_complete_current_dungeon()
 		return
 
 	_open_world_map(false)
@@ -238,27 +270,64 @@ func _on_battle_won() -> void:
 
 func _on_battle_lost() -> void:
 	_sync_profile_from_player()
-	if player_profile != null:
-		player_profile.reset_streak()
-	map_run_state.clear_pending_node()
-	map_run_state.clear_run()
-	_open_main_base()
+	_fail_expedition()
 
 
 func _on_battle_exited() -> void:
 	_sync_profile_from_player()
+	_return_to_main_base_after_dungeon()
+
+
+func _complete_current_dungeon() -> void:
+	ExpeditionState.complete_current_dungeon()
+	_return_to_main_base_after_dungeon()
+
+
+func _fail_expedition() -> void:
+	ExpeditionState.fail_expedition()
+	ExpeditionState.reset()
+	if player_profile != null:
+		player_profile.reset_streak()
+	_return_to_main_base_after_dungeon()
+
+
+func _return_to_main_base_after_dungeon() -> void:
 	map_run_state.clear_pending_node()
 	map_run_state.clear_run()
 	_open_main_base()
 
 
+func _get_current_dungeon_seed() -> int:
+	return initial_seed + max(0, ExpeditionState.dungeon_index - 1)
+
+
 func _get_enemy_data_for_node(node_data: MapNodeData) -> UnitData:
+	var enemy_data: UnitData = null
 	match node_data.node_type:
-		&"elite":
-			return elite_enemy_data if elite_enemy_data != null else combat_enemy_data
-		&"boss":
-			return boss_enemy_data if boss_enemy_data != null else elite_enemy_data if elite_enemy_data != null else combat_enemy_data
-		&"combat":
-			return combat_enemy_data
+		MapNodeData.TYPE_ELITE:
+			enemy_data = elite_enemy_data if elite_enemy_data != null else combat_enemy_data
+		MapNodeData.TYPE_BOSS:
+			enemy_data = boss_enemy_data if boss_enemy_data != null else elite_enemy_data if elite_enemy_data != null else combat_enemy_data
+		MapNodeData.TYPE_COMBAT:
+			enemy_data = combat_enemy_data
 		_:
 			return null
+
+	return _get_scaled_enemy_data(enemy_data)
+
+
+func _get_scaled_enemy_data(enemy_data: UnitData) -> UnitData:
+	if enemy_data == null:
+		return null
+
+	var dungeon_bonus: int = max(0, ExpeditionState.dungeon_index - 1)
+	if dungeon_bonus <= 0:
+		return enemy_data
+
+	var scaled_enemy := enemy_data.duplicate() as UnitData
+	var hp_multiplier := 1.0 + float(dungeon_bonus) * 0.12
+	var atk_multiplier := 1.0 + float(dungeon_bonus) * 0.08
+	scaled_enemy.max_hp = max(1, int(round(float(enemy_data.max_hp) * hp_multiplier)))
+	scaled_enemy.atk = max(1, int(round(float(enemy_data.atk) * atk_multiplier)))
+	scaled_enemy.def = enemy_data.def + int(dungeon_bonus / 3)
+	return scaled_enemy

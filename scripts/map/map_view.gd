@@ -79,6 +79,9 @@ func _rebuild() -> void:
 	)
 
 	for node in sorted_nodes:
+		if not node.is_visible:
+			continue
+
 		var button := node_scene.instantiate() as MapNodeButton
 		node_layer.add_child(button)
 		button.setup(node, node_size)
@@ -87,7 +90,7 @@ func _rebuild() -> void:
 
 		var is_current: bool = node.id == _current_node_id
 		var is_reachable: bool = _reachable_ids.has(node.id)
-		button.apply_state(is_current, is_reachable, node.visited)
+		button.apply_state(is_current, is_reachable, node.is_completed)
 		_button_by_id[node.id] = button
 
 	_update_player_marker()
@@ -119,9 +122,12 @@ func _draw() -> void:
 	_draw_background()
 
 	for node in _run_data.nodes:
+		if not node.is_visible:
+			continue
+
 		for target_id in node.connected_to:
 			var target_node := _run_data.get_node_by_id(target_id)
-			if target_node == null:
+			if target_node == null or not target_node.is_visible:
 				continue
 
 			_draw_connection(node, target_node)
@@ -174,7 +180,7 @@ func _draw_connection(source: MapNodeData, target: MapNodeData) -> void:
 	var highlight_strength: float = float(_highlight_strength_by_key.get(key, 0.0))
 	var line_color: Color = connection_color
 
-	if source.visited and target.visited:
+	if source.is_completed and target.is_completed:
 		line_color = visited_connection_color
 
 	draw_polyline(points, connection_shadow_color, connection_width + 4.0, true)
@@ -334,9 +340,9 @@ func _build_target_highlight_strengths() -> Dictionary:
 			var key := _get_connection_key(node.id, target_id)
 			var strength := 0.0
 
-			if node.visited:
+			if node.is_completed:
 				var target_node: MapNodeData = _run_data.get_node_by_id(target_id)
-				if target_node != null and target_node.visited:
+				if target_node != null and target_node.is_completed:
 					strength = 0.45
 
 			if node.id == _current_node_id and _reachable_ids.has(target_id):

@@ -27,9 +27,7 @@ signal node_selected(node_data: MapNodeData)
 @export var combat_weight: int = 55
 @export var event_weight: int = 22
 @export var elite_weight: int = 10
-@export var shop_weight: int = 6
-@export var rest_weight: int = 5
-@export var treasure_weight: int = 2
+@export var resource_weight: int = 13
 
 @onready var map_view: MapView = $PanelContainer/MarginContainer/ScrollContainer/MapView
 
@@ -98,9 +96,7 @@ func _build_generator_config() -> Dictionary:
 		"combat_weight": combat_weight,
 		"event_weight": event_weight,
 		"elite_weight": elite_weight,
-		"shop_weight": shop_weight,
-		"rest_weight": rest_weight,
-		"treasure_weight": treasure_weight,
+		"resource_weight": resource_weight,
 	}
 
 
