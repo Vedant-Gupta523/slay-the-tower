@@ -282,6 +282,222 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
+[node name="RewardOverlay" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="RewardCenter" type="CenterContainer" parent="RewardOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="RewardPanel" type="PanelContainer" parent="RewardOverlay/RewardCenter"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(760, 260)
+layout_mode = 2
+
+[node name="RewardPanelMargin" type="MarginContainer" parent="RewardOverlay/RewardCenter/RewardPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 14
+
+[node name="RewardBox" type="VBoxContainer" parent="RewardOverlay/RewardCenter/RewardPanel/RewardPanelMargin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="RewardTitleLabel" type="Label" parent="RewardOverlay/RewardCenter/RewardPanel/RewardPanelMargin/RewardBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Choose Equipment"
+horizontal_alignment = 1
+
+[node name="RewardOptions" type="HBoxContainer" parent="RewardOverlay/RewardCenter/RewardPanel/RewardPanelMargin/RewardBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="SkipRewardButton" type="Button" parent="RewardOverlay/RewardCenter/RewardPanel/RewardPanelMargin/RewardBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
+text = "Skip"
+
+[node name="ManageEquipmentButton" type="Button" parent="RewardOverlay/RewardCenter/RewardPanel/RewardPanelMargin/RewardBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
+text = "Manage Equipment"
+
+[node name="EquipmentOverlay" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="EquipmentDim" type="ColorRect" parent="EquipmentOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.88)
+
+[node name="EquipmentCenter" type="CenterContainer" parent="EquipmentOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="EquipmentPanel" type="PanelContainer" parent="EquipmentOverlay/EquipmentCenter"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(920, 460)
+layout_mode = 2
+
+[node name="EquipmentPanelMargin" type="MarginContainer" parent="EquipmentOverlay/EquipmentCenter/EquipmentPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 22
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 22
+theme_override_constants/margin_bottom = 20
+
+[node name="EquipmentBox" type="VBoxContainer" parent="EquipmentOverlay/EquipmentCenter/EquipmentPanel/EquipmentPanelMargin"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="EquipmentTitleLabel" type="Label" parent="EquipmentOverlay/EquipmentCenter/EquipmentPanel/EquipmentPanelMargin/EquipmentBox"]
+layout_mode = 2
+text = "Equipment"
+horizontal_alignment = 1
+
+[node name="EquipmentSubtitleLabel" type="Label" parent="EquipmentOverlay/EquipmentCenter/EquipmentPanel/EquipmentPanelMargin/EquipmentBox"]
+layout_mode = 2
+text = "Select equipment, inspect stats, then choose an action."
+horizontal_alignment = 1
+
+[node name="EquipmentContent" type="HBoxContainer" parent="EquipmentOverlay/EquipmentCenter/EquipmentPanel/EquipmentPanelMargin/EquipmentBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 16
+
+[node name="EquippedPanel" type="PanelContainer" parent="EquipmentOverlay/EquipmentCenter/EquipmentPanel/EquipmentPanelMargin/EquipmentBox/EquipmentContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(250, 0)
+layout_mode = 2
+
+[node name="EquippedMargin" type="MarginContainer" parent="EquipmentOverlay/EquipmentCenter/EquipmentPanel/EquipmentPanelMargin/EquipmentBox/EquipmentContent/EquippedPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 10
+
+[node name="EquippedBox" type="VBoxContainer" parent="EquipmentOverlay/EquipmentCenter/EquipmentPanel/EquipmentPanelMargin/EquipmentBox/EquipmentContent/EquippedPanel/EquippedMargin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="EquippedLabel" type="Label" parent="EquipmentOverlay/EquipmentCenter/EquipmentPanel/EquipmentPanelMargin/EquipmentBox/EquipmentContent/EquippedPanel/EquippedMargin/EquippedBox"]
+layout_mode = 2
+text = "Equipped"
+horizontal_alignment = 1
+
+[node name="EquippedSlots" type="VBoxContainer" parent="EquipmentOverlay/EquipmentCenter/EquipmentPanel/EquipmentPanelMargin/EquipmentBox/EquipmentContent/EquippedPanel/EquippedMargin/EquippedBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="ReservePanel" type="PanelContainer" parent="EquipmentOverlay/EquipmentCenter/EquipmentPanel/EquipmentPanelMargin/EquipmentBox/EquipmentContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(280, 0)
+layout_mode = 2
+
+[node name="ReserveMargin" type="MarginContainer" parent="EquipmentOverlay/EquipmentCenter/EquipmentPanel/EquipmentPanelMargin/EquipmentBox/EquipmentContent/ReservePanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 10
+
+[node name="ReserveBox" type="VBoxContainer" parent="EquipmentOverlay/EquipmentCenter/EquipmentPanel/EquipmentPanelMargin/EquipmentBox/EquipmentContent/ReservePanel/ReserveMargin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="ReserveLabel" type="Label" parent="EquipmentOverlay/EquipmentCenter/EquipmentPanel/EquipmentPanelMargin/EquipmentBox/EquipmentContent/ReservePanel/ReserveMargin/ReserveBox"]
+layout_mode = 2
+text = "Reserve"
+horizontal_alignment = 1
+
+[node name="ReserveItems" type="VBoxContainer" parent="EquipmentOverlay/EquipmentCenter/EquipmentPanel/EquipmentPanelMargin/EquipmentBox/EquipmentContent/ReservePanel/ReserveMargin/ReserveBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="EquipmentDetailsPanel" type="PanelContainer" parent="EquipmentOverlay/EquipmentCenter/EquipmentPanel/EquipmentPanelMargin/EquipmentBox/EquipmentContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(340, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="EquipmentDetailsMargin" type="MarginContainer" parent="EquipmentOverlay/EquipmentCenter/EquipmentPanel/EquipmentPanelMargin/EquipmentBox/EquipmentContent/EquipmentDetailsPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 14
+
+[node name="EquipmentDetailsBox" type="VBoxContainer" parent="EquipmentOverlay/EquipmentCenter/EquipmentPanel/EquipmentPanelMargin/EquipmentBox/EquipmentContent/EquipmentDetailsPanel/EquipmentDetailsMargin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="EquipmentDetailsLabel" type="RichTextLabel" parent="EquipmentOverlay/EquipmentCenter/EquipmentPanel/EquipmentPanelMargin/EquipmentBox/EquipmentContent/EquipmentDetailsPanel/EquipmentDetailsMargin/EquipmentDetailsBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 285)
+layout_mode = 2
+size_flags_vertical = 3
+bbcode_enabled = true
+text = "Select equipment to inspect."
+
+[node name="EquipmentActions" type="HBoxContainer" parent="EquipmentOverlay/EquipmentCenter/EquipmentPanel/EquipmentPanelMargin/EquipmentBox/EquipmentContent/EquipmentDetailsPanel/EquipmentDetailsMargin/EquipmentDetailsBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="EquipSelectedButton" type="Button" parent="EquipmentOverlay/EquipmentCenter/EquipmentPanel/EquipmentPanelMargin/EquipmentBox/EquipmentContent/EquipmentDetailsPanel/EquipmentDetailsMargin/EquipmentDetailsBox/EquipmentActions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(132, 38)
+layout_mode = 2
+text = "Equip"
+
+[node name="UnequipSelectedButton" type="Button" parent="EquipmentOverlay/EquipmentCenter/EquipmentPanel/EquipmentPanelMargin/EquipmentBox/EquipmentContent/EquipmentDetailsPanel/EquipmentDetailsMargin/EquipmentDetailsBox/EquipmentActions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(132, 38)
+layout_mode = 2
+text = "Unequip"
+
+[node name="CloseEquipmentButton" type="Button" parent="EquipmentOverlay/EquipmentCenter/EquipmentPanel/EquipmentPanelMargin/EquipmentBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
+text = "Close"
+
 [node name="BattleController" type="Node" parent="."]
 script = ExtResource("1_pu738")
 player_data = ExtResource("2_ugm31")

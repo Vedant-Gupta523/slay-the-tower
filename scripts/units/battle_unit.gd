@@ -5,6 +5,8 @@ var data: UnitData
 var current_hp: int
 var is_defending: bool = false
 var skills: Array[SkillInstance] = []
+var equipment: Dictionary = {}
+var reserve_inventory: Array[EquipmentData] = []
 
 func _init(unit_data: UnitData) -> void:
 	data = unit_data
@@ -21,19 +23,19 @@ func get_unit_name() -> String:
 	return data.unit_name
 
 func get_max_hp() -> int:
-	return data.max_hp
+	return max(1, data.max_hp + _get_equipment_stat_bonus("max_hp_bonus"))
 
 func get_current_hp() -> int:
 	return current_hp
 
 func get_atk() -> int:
-	return data.atk
+	return data.atk + _get_equipment_stat_bonus("atk_bonus")
 
 func get_def() -> int:
-	return data.def
+	return data.def + _get_equipment_stat_bonus("def_bonus")
 
 func get_spd() -> int:
-	return data.spd
+	return data.spd + _get_equipment_stat_bonus("spd_bonus")
 
 func get_skills() -> Array[SkillInstance]:
 	return skills
@@ -63,3 +65,73 @@ func basic_attack(target: BattleUnit) -> int:
 func reduce_skill_cooldowns() -> void:
 	for skill in skills:
 		skill.reduce_cooldown()
+
+func equip_item(item: EquipmentData) -> void:
+	if item == null:
+		return
+
+	var old_max_hp := get_max_hp()
+	var old_item := get_equipped_item(item.slot_type)
+	_remove_from_reserve(item)
+
+	if old_item != null and old_item != item:
+		add_to_reserve(old_item)
+
+	equipment[item.slot_type] = item
+	var new_max_hp := get_max_hp()
+	current_hp = clamp(current_hp + max(0, new_max_hp - old_max_hp), 0, new_max_hp)
+
+func add_to_reserve(item: EquipmentData) -> void:
+	if item == null or reserve_inventory.has(item):
+		return
+
+	reserve_inventory.append(item)
+
+func equip_reserve_item(reserve_index: int) -> EquipmentData:
+	if reserve_index < 0 or reserve_index >= reserve_inventory.size():
+		return null
+
+	var item := reserve_inventory[reserve_index]
+	equip_item(item)
+	return item
+
+func unequip_slot(slot_type: int) -> EquipmentData:
+	var item := get_equipped_item(slot_type)
+
+	if item == null:
+		return null
+
+	equipment.erase(slot_type)
+	add_to_reserve(item)
+	var new_max_hp := get_max_hp()
+	current_hp = clamp(current_hp, 0, new_max_hp)
+
+	return item
+
+func get_equipped_item(slot_type: int) -> EquipmentData:
+	return equipment.get(slot_type, null) as EquipmentData
+
+func get_equipped_items() -> Dictionary:
+	return equipment.duplicate()
+
+func get_reserve_inventory() -> Array[EquipmentData]:
+	var copy: Array[EquipmentData] = []
+	copy.assign(reserve_inventory)
+	return copy
+
+func _remove_from_reserve(item: EquipmentData) -> void:
+	var index := reserve_inventory.find(item)
+
+	if index >= 0:
+		reserve_inventory.remove_at(index)
+
+func _get_equipment_stat_bonus(property_name: String) -> int:
+	var total := 0
+
+	for item in equipment.values():
+		if item == null:
+			continue
+
+		total += int(item.get(property_name))
+
+	return total

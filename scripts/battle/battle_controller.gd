@@ -5,6 +5,9 @@ extends Node
 @export var enemy_data: UnitData
 @export var enemy_turn_delay: float = 0.75
 
+const EQUIPMENT_REWARD_DIR := "res://data/equipment"
+const REWARD_OPTION_COUNT := 3
+
 enum BattleState {
 	START,
 	PLAYER_TURN,
@@ -17,6 +20,7 @@ var player: PlayerUnit
 var enemy: EnemyUnit
 var battle_state: BattleState = BattleState.START
 var view: BattleView
+var reward_options: Array[EquipmentData] = []
 
 func _ready() -> void:
 	view = get_parent() as BattleView
@@ -30,12 +34,19 @@ func _ready() -> void:
 	view.attack_pressed.connect(_on_attack_button_pressed)
 	view.defend_pressed.connect(_on_defend_button_pressed)
 	view.skill_pressed.connect(_on_skill_button_pressed)
+	view.reward_selected.connect(_on_reward_selected)
+	view.reward_skipped.connect(_on_reward_skipped)
+	view.equipment_manage_requested.connect(_on_equipment_manage_requested)
+	view.reserve_equipment_equip_requested.connect(_on_reserve_equipment_equip_requested)
+	view.equipment_slot_unequip_requested.connect(_on_equipment_slot_unequip_requested)
 
 	start_battle()
 
 func start_battle() -> void:
 	player = PlayerUnit.new(player_data)
 	enemy = EnemyUnit.new(enemy_data)
+	view.hide_equipment_rewards()
+	view.hide_equipment_panel()
 
 	view.build_skill_bar(player.get_skills())
 	update_ui()
@@ -195,6 +206,7 @@ func check_battle_end() -> bool:
 		view.present_battle_result(true)
 		view.set_action_buttons_enabled(false)
 		view.refresh_skill_bar(player.get_skills(), false)
+		_offer_equipment_rewards()
 		return true
 
 	if player.is_dead():
@@ -222,3 +234,107 @@ func _get_target_side(target: BattleUnit) -> String:
 		return BattleView.TARGET_PLAYER
 
 	return BattleView.TARGET_ENEMY
+
+func _offer_equipment_rewards() -> void:
+	reward_options = _get_equipment_reward_options()
+
+	if reward_options.is_empty():
+		view.set_log_text("No equipment rewards found.")
+		return
+
+	view.show_equipment_rewards(reward_options, player.get_equipped_items())
+
+func _get_equipment_reward_options() -> Array[EquipmentData]:
+	var pool := _load_equipment_reward_pool()
+	var options: Array[EquipmentData] = []
+
+	pool.shuffle()
+
+	for item in pool:
+		options.append(item)
+
+		if options.size() >= REWARD_OPTION_COUNT:
+			break
+
+	return options
+
+func _load_equipment_reward_pool() -> Array[EquipmentData]:
+	var pool: Array[EquipmentData] = []
+	var dir := DirAccess.open(EQUIPMENT_REWARD_DIR)
+
+	if dir == null:
+		push_warning("Missing equipment reward directory: %s" % EQUIPMENT_REWARD_DIR)
+		return pool
+
+	dir.list_dir_begin()
+	var file_name := dir.get_next()
+
+	while file_name != "":
+		if not dir.current_is_dir() and file_name.ends_with(".tres"):
+			var item := load("%s/%s" % [EQUIPMENT_REWARD_DIR, file_name]) as EquipmentData
+
+			if item != null:
+				pool.append(item)
+
+		file_name = dir.get_next()
+
+	dir.list_dir_end()
+	return pool
+
+func _on_reward_selected(reward_index: int) -> void:
+	if battle_state != BattleState.VICTORY:
+		return
+
+	if reward_index < 0 or reward_index >= reward_options.size():
+		return
+
+	var item := reward_options[reward_index]
+	if player.get_equipped_item(item.slot_type) == null:
+		player.equip_item(item)
+		view.set_log_text("Equipped %s." % item.item_name)
+	else:
+		player.add_to_reserve(item)
+		view.set_log_text("Stored %s in reserve." % item.item_name)
+
+	update_ui()
+
+func _on_reward_skipped() -> void:
+	if battle_state != BattleState.VICTORY:
+		return
+
+	view.set_log_text("Skipped equipment reward.")
+
+func _on_equipment_manage_requested() -> void:
+	if player == null:
+		return
+
+	view.show_equipment_panel(player.get_equipped_items(), player.get_reserve_inventory())
+
+func _on_reserve_equipment_equip_requested(reserve_index: int) -> void:
+	if player == null:
+		return
+
+	var item := player.equip_reserve_item(reserve_index)
+
+	if item == null:
+		return
+
+	view.set_log_text("Equipped %s." % item.item_name)
+	update_ui()
+	_refresh_equipment_panel()
+
+func _on_equipment_slot_unequip_requested(slot_type: int) -> void:
+	if player == null:
+		return
+
+	var item := player.unequip_slot(slot_type)
+
+	if item == null:
+		return
+
+	view.set_log_text("Moved %s to reserve." % item.item_name)
+	update_ui()
+	_refresh_equipment_panel()
+
+func _refresh_equipment_panel() -> void:
+	view.show_equipment_panel(player.get_equipped_items(), player.get_reserve_inventory())
