@@ -7,17 +7,26 @@ const TYPE_EVENT := MapNodeData.TYPE_EVENT
 const TYPE_RESOURCE := MapNodeData.TYPE_RESOURCE
 const TYPE_BOSS := MapNodeData.TYPE_BOSS
 
-const DEFAULT_MIN_NODE_GAP := 92.0
-const DEFAULT_ROW_VERTICAL_JITTER := 18.0
-const DEFAULT_ROW_CENTER_DRIFT := 72.0
-const DEFAULT_CLUSTER_STRENGTH := 0.38
-const MAX_PRIMARY_TARGET_STEP := 1
-const MAX_EXTRA_TARGET_STEP := 1
+const DEFAULT_RING_SPACING := 170.0
+const DEFAULT_RING_JITTER := 14.0
+const DEFAULT_ANGLE_JITTER := 0.18
+const DEFAULT_PHASE_DRIFT := 0.28
+const DEFAULT_CENTER_MARGIN := 220.0
+const MAX_TOTAL_NODES := 25
+const MIN_EDGE_SEPARATION := 20.0
+const NODE_CLEARANCE_RADIUS := 46.0
+const EDGE_BOUNDS_PADDING := 18.0
+const CARDINAL_ANGLES := [
+	-PI * 0.5,
+	0.0,
+	PI * 0.5,
+	PI,
+]
 
 
 func generate_run(seed: int = 0, config: Dictionary = {}) -> MapRunData:
-	var run := MapRunData.new()
-	var rng := RandomNumberGenerator.new()
+	var run: MapRunData = MapRunData.new()
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 	var actual_seed: int = seed
 
 	if actual_seed == 0:
@@ -28,446 +37,404 @@ func generate_run(seed: int = 0, config: Dictionary = {}) -> MapRunData:
 	run.current_node_id = -1
 	run.started = false
 
-	var row_count: int = clamp(int(config.get("row_count", 10)), 8, 12)
-	var min_middle_nodes: int = clamp(int(config.get("min_middle_nodes", 2)), 2, 4)
-	var max_middle_nodes: int = clamp(int(config.get("max_middle_nodes", 4)), min_middle_nodes, 4)
-	var map_width: float = float(config.get("map_width", 960.0))
-	var side_padding: float = float(config.get("side_padding", 96.0))
-	var top_padding: float = float(config.get("top_padding", 96.0))
-	var horizontal_spacing: float = float(config.get("horizontal_spacing", 220.0))
-	var vertical_spacing: float = float(config.get("vertical_spacing", 140.0))
-	var horizontal_jitter: float = float(config.get("horizontal_jitter", 32.0))
-	var row_vertical_jitter: float = float(config.get("row_vertical_jitter", DEFAULT_ROW_VERTICAL_JITTER))
-	var min_node_gap: float = float(config.get("min_node_gap", DEFAULT_MIN_NODE_GAP))
-	var row_center_drift: float = float(config.get("row_center_drift", DEFAULT_ROW_CENTER_DRIFT))
-	var cluster_strength: float = clamp(float(config.get("cluster_strength", DEFAULT_CLUSTER_STRENGTH)), 0.0, 0.85)
-
-	var rows: Array[Array] = []
+	var ring_count: int = clamp(int(config.get("row_count", 8)), 6, 10)
+	var min_ring_nodes: int = clamp(int(config.get("min_middle_nodes", 3)), 4, 5)
+	var max_ring_nodes: int = clamp(int(config.get("max_middle_nodes", 5)), min_ring_nodes, 6)
+	var map_width: float = float(config.get("map_width", 1600.0))
+	var map_height: float = float(config.get("map_height", map_width))
+	var ring_spacing: float = float(config.get("ring_spacing", config.get("vertical_spacing", DEFAULT_RING_SPACING)))
+	var ring_radius_jitter: float = float(config.get("ring_radius_jitter", DEFAULT_RING_JITTER))
+	var angle_jitter: float = float(config.get("angle_jitter", DEFAULT_ANGLE_JITTER))
+	var phase_drift: float = float(config.get("phase_drift", DEFAULT_PHASE_DRIFT))
+	var center_margin: float = float(config.get("center_margin", DEFAULT_CENTER_MARGIN))
+	var boss_count: int = clamp(int(config.get("boss_count", 2)), 1, 3)
+	var max_total_nodes: int = min(MAX_TOTAL_NODES, int(config.get("max_total_nodes", MAX_TOTAL_NODES)))
+	var content_rect: Rect2 = _build_content_rect(map_width, map_height, config)
+	var center: Vector2 = content_rect.position + content_rect.size * 0.5
+	var rings: Array[Array] = []
 	var next_node_id: int = 0
-	var previous_row_x: Array[float] = []
+	var phase: float = rng.randf_range(-PI, PI)
+	var ring_counts: Array[int] = _build_ring_counts(rng, ring_count, min_ring_nodes, max_ring_nodes, boss_count, max_total_nodes)
+	var ring_radii: Array[float] = _build_ring_radii(ring_counts.size(), center_margin, ring_spacing, ring_radius_jitter, content_rect)
+	var accepted_edges: Array[Dictionary] = []
 
-	for row_index in range(row_count):
-		var row_nodes: Array[MapNodeData] = []
-		var node_count: int = 1
+	for depth in range(ring_counts.size()):
+		var ring_nodes: Array[MapNodeData] = []
+		var node_count: int = ring_counts[depth]
+		var ring_base_radius: float = float(ring_radii[depth])
+		var min_ring_radius: float = ring_base_radius
+		var max_ring_radius: float = ring_base_radius
+		if depth > 0:
+			var previous_radius: float = float(ring_radii[max(depth - 1, 0)])
+			var next_radius: float = float(ring_radii[min(depth + 1, ring_radii.size() - 1)])
+			var inward_gap: float = max(28.0, (ring_base_radius - previous_radius) * 0.35)
+			var outward_gap: float = max(28.0, (next_radius - ring_base_radius) * 0.35)
+			min_ring_radius = max(previous_radius + 24.0, ring_base_radius - min(ring_radius_jitter, inward_gap))
+			max_ring_radius = min(next_radius - 24.0, ring_base_radius + min(ring_radius_jitter, outward_gap))
 
-		if row_index > 0 and row_index < row_count - 1:
-			node_count = rng.randi_range(min_middle_nodes, max_middle_nodes)
-
-		var row_positions: Array[Vector2] = _build_row_positions(
+		var positions: Array[Vector2] = _build_ring_positions(
 			rng,
-			row_index,
-			row_count,
+			center,
 			node_count,
-			map_width,
-			side_padding,
-			top_padding,
-			horizontal_spacing,
-			vertical_spacing,
-			horizontal_jitter,
-			row_vertical_jitter,
-			min_node_gap,
-			row_center_drift,
-			cluster_strength,
-			previous_row_x
+			ring_base_radius,
+			min_ring_radius,
+			max_ring_radius,
+			depth == 1 and node_count == CARDINAL_ANGLES.size(),
+			angle_jitter,
+			phase,
+			content_rect
 		)
 
-		for column_index in range(node_count):
-			var node := MapNodeData.new()
+		for position in positions:
+			var node: MapNodeData = MapNodeData.new()
 			node.id = next_node_id
-			node.row = row_index
-			node.position = row_positions[column_index]
+			node.row = depth
+			node.position = position
+			node.angle = center.angle_to_point(position)
 			node.node_type = TYPE_COMBAT
+			node.connected_to = []
 			node.visited = false
 			node.is_discovered = false
-			node.is_completed = false
 			node.is_visible = false
+			node.is_completed = false
 			node.is_available = false
-			row_nodes.append(node)
+			ring_nodes.append(node)
 			run.nodes.append(node)
 			next_node_id += 1
 
-		previous_row_x.clear()
-		for position in row_positions:
-			previous_row_x.append(position.x)
+		rings.append(ring_nodes)
+		if depth > 0:
+			phase += rng.randf_range(-phase_drift, phase_drift)
 
-		rows.append(row_nodes)
+	for depth in range(rings.size() - 1):
+		_connect_rings(rng, rings[depth], rings[depth + 1], run.nodes, accepted_edges, content_rect)
 
-	for row_index in range(row_count - 1):
-		var current_row: Array[MapNodeData] = rows[row_index]
-		var next_row: Array[MapNodeData] = rows[row_index + 1]
-		_connect_rows(rng, current_row, next_row)
-
-	_assign_node_types(rng, run, rows, config)
+	run.start_node_id = rings[0][0].id
+	_assign_node_types(rng, run, rings, config)
 	return run
 
 
-func _build_row_positions(
+func _build_ring_counts(
 	rng: RandomNumberGenerator,
-	row_index: int,
-	row_count: int,
+	ring_count: int,
+	min_ring_nodes: int,
+	max_ring_nodes: int,
+	boss_count: int,
+	max_total_nodes: int
+) -> Array[int]:
+	var counts: Array[int] = [1]
+	var remaining_budget: int = max_total_nodes - 1
+	var usable_ring_count: int = max(2, ring_count)
+
+	for depth in range(1, usable_ring_count):
+		var count: int
+		if depth == 1:
+			count = CARDINAL_ANGLES.size()
+		elif depth == usable_ring_count - 1:
+			count = min(boss_count, remaining_budget)
+		else:
+			var remaining_rings: int = usable_ring_count - depth - 1
+			var reserve_for_tail: int = max(1, remaining_rings) * 2
+			var max_allowed: int = max(2, remaining_budget - reserve_for_tail)
+			count = min(max_allowed, rng.randi_range(min_ring_nodes, max_ring_nodes))
+
+		count = max(1, min(count, remaining_budget))
+		counts.append(count)
+		remaining_budget -= count
+
+		if remaining_budget <= 0:
+			break
+
+	if counts[counts.size() - 1] <= 0:
+		counts.remove_at(counts.size() - 1)
+
+	return counts
+
+
+func _build_ring_positions(
+	rng: RandomNumberGenerator,
+	center: Vector2,
 	node_count: int,
-	map_width: float,
-	side_padding: float,
-	top_padding: float,
-	horizontal_spacing: float,
-	vertical_spacing: float,
-	horizontal_jitter: float,
-	row_vertical_jitter: float,
-	min_node_gap: float,
-	row_center_drift: float,
-	cluster_strength: float,
-	previous_row_x: Array[float]
+	base_radius: float,
+	min_radius: float,
+	max_radius: float,
+	use_cardinal_layout: bool,
+	angle_jitter: float,
+	phase: float,
+	content_rect: Rect2
 ) -> Array[Vector2]:
 	var positions: Array[Vector2] = []
-	var visual_row: int = row_count - 1 - row_index
-	var y: float = top_padding + float(visual_row) * vertical_spacing + rng.randf_range(-row_vertical_jitter, row_vertical_jitter)
-
-	if node_count == 1:
-		var single_x: float = _get_row_center_x(rng, map_width, side_padding, row_center_drift, previous_row_x)
-		positions.append(Vector2(single_x, y))
+	if is_zero_approx(base_radius):
+		positions.append(center)
 		return positions
 
-	var usable_width: float = max(map_width - side_padding * 2.0, horizontal_spacing * float(node_count - 1))
-	var x_values: Array[float] = []
-	var minimum_gap: float = max(min_node_gap, usable_width / float(max(3, node_count * 3)))
-	var target_span: float = min(
-		usable_width,
-		max(minimum_gap * float(node_count - 1), horizontal_spacing * float(node_count - 1) * rng.randf_range(0.78, 1.08))
+	var angles: Array[float] = []
+
+	if use_cardinal_layout:
+		for cardinal_angle in CARDINAL_ANGLES:
+			angles.append(float(cardinal_angle))
+	else:
+		var step_angle: float = TAU / float(node_count)
+		var max_angle_jitter: float = min(angle_jitter, step_angle * 0.26)
+		for index in range(node_count):
+			angles.append(phase + float(index) * step_angle + rng.randf_range(-max_angle_jitter, max_angle_jitter))
+
+	for angle_value in angles:
+		var angle: float = angle_value
+		var radius: float = clampf(base_radius + rng.randf_range(min_radius - base_radius, max_radius - base_radius), min_radius, max_radius)
+		var point: Vector2 = center + Vector2.RIGHT.rotated(angle) * radius
+		positions.append(_clamp_point_to_rect(point, content_rect))
+
+	positions.sort_custom(func(a: Vector2, b: Vector2) -> bool:
+		return center.angle_to_point(a) < center.angle_to_point(b)
 	)
-	var row_center_x: float = _get_row_center_x(rng, map_width, side_padding, row_center_drift, previous_row_x)
-	var span_start: float = clamp(row_center_x - target_span * 0.5, side_padding, map_width - side_padding - target_span)
-	var span_end: float = span_start + target_span
-	var free_width: float = max(0.0, target_span - minimum_gap * float(node_count - 1))
-	var gap_weights: Array[float] = []
-	var total_weight: float = 0.0
-
-	for gap_index in range(node_count - 1):
-		var weight: float = _sample_gap_weight(rng, cluster_strength, gap_index, node_count - 1)
-		gap_weights.append(weight)
-		total_weight += weight
-
-	x_values.append(span_start)
-
-	for gap_index in range(gap_weights.size()):
-		var extra_gap: float = 0.0
-		if total_weight > 0.0:
-			extra_gap = free_width * (gap_weights[gap_index] / total_weight)
-		x_values.append(x_values[gap_index] + minimum_gap + extra_gap)
-
-	for column_index in range(x_values.size()):
-		var left_limit := span_start + float(column_index) * minimum_gap
-		var right_limit := span_end - float(node_count - 1 - column_index) * minimum_gap
-		var local_jitter := rng.randf_range(-horizontal_jitter, horizontal_jitter)
-		x_values[column_index] = clamp(x_values[column_index] + local_jitter, left_limit, right_limit)
-
-		if column_index > 0:
-			x_values[column_index] = max(x_values[column_index], x_values[column_index - 1] + minimum_gap)
-
-	_normalize_row_spacing(x_values, side_padding, map_width - side_padding, minimum_gap)
-
-	for x_value in x_values:
-		positions.append(Vector2(x_value, y))
-
 	return positions
 
 
-func _get_row_center_x(
+func _connect_rings(
 	rng: RandomNumberGenerator,
-	map_width: float,
-	side_padding: float,
-	row_center_drift: float,
-	previous_row_x: Array[float]
-) -> float:
-	var default_center := map_width * 0.5
-	var center := default_center
-
-	if not previous_row_x.is_empty():
-		for x_value in previous_row_x:
-			center += x_value
-		center /= float(previous_row_x.size() + 1)
-
-	center += rng.randf_range(-row_center_drift, row_center_drift)
-	return clamp(center, side_padding + 32.0, map_width - side_padding - 32.0)
-
-
-func _sample_gap_weight(
-	rng: RandomNumberGenerator,
-	cluster_strength: float,
-	gap_index: int,
-	gap_count: int
-) -> float:
-	var center_bias: float = 1.0 - absf((float(gap_index) + 0.5) / maxf(1.0, float(gap_count)) - 0.5) * 2.0
-	var cluster_pull: float = lerpf(1.0, 0.5 + center_bias * 1.6, cluster_strength)
-	return max(0.1, rng.randf_range(0.35, 1.65) * cluster_pull)
-
-
-func _normalize_row_spacing(x_values: Array[float], min_x: float, max_x: float, minimum_gap: float) -> void:
-	if x_values.is_empty():
+	inner_ring: Array[MapNodeData],
+	outer_ring: Array[MapNodeData],
+	all_nodes: Array[MapNodeData],
+	accepted_edges: Array[Dictionary],
+	content_rect: Rect2
+) -> void:
+	if inner_ring.is_empty() or outer_ring.is_empty():
 		return
 
-	if x_values[0] < min_x:
-		var underflow: float = min_x - x_values[0]
-		for index in range(x_values.size()):
-			x_values[index] += underflow
-
-	if x_values[x_values.size() - 1] > max_x:
-		var overflow: float = x_values[x_values.size() - 1] - max_x
-		for index in range(x_values.size()):
-			x_values[index] -= overflow
-
-	for index in range(1, x_values.size()):
-		x_values[index] = max(x_values[index], x_values[index - 1] + minimum_gap)
-
-	if x_values[x_values.size() - 1] > max_x:
-		x_values[x_values.size() - 1] = max_x
-
-	for index in range(x_values.size() - 2, -1, -1):
-		x_values[index] = min(x_values[index], x_values[index + 1] - minimum_gap)
-
-	x_values[0] = max(x_values[0], min_x)
-
-
-func _connect_rows(rng: RandomNumberGenerator, current_row: Array[MapNodeData], next_row: Array[MapNodeData]) -> void:
-	if next_row.size() == 1:
-		var boss_target_id: int = next_row[0].id
-		for node in current_row:
-			node.connected_to = [boss_target_id]
+	if inner_ring.size() == 1:
+		for outer_node in outer_ring:
+			if _is_connection_valid(inner_ring[0], outer_node, accepted_edges, all_nodes, content_rect):
+				inner_ring[0].connected_to.append(outer_node.id)
+				accepted_edges.append({
+					"from": inner_ring[0],
+					"to": outer_node,
+				})
 		return
 
-	var primary_targets: Array[int] = _build_primary_targets(rng, current_row, next_row)
-	var connections_by_source: Array[Array] = []
-	connections_by_source.resize(current_row.size())
+	var outer_by_inner: Array[Array] = []
+	outer_by_inner.resize(inner_ring.size())
 
-	for source_index in range(current_row.size()):
-		connections_by_source[source_index] = [primary_targets[source_index]]
+	for inner_index in range(inner_ring.size()):
+		outer_by_inner[inner_index] = []
 
-	_ensure_every_target_has_owner(connections_by_source, current_row, next_row)
-	_add_optional_branches(rng, connections_by_source, current_row, next_row)
+	for outer_index in range(outer_ring.size()):
+		var owner_index: int = _get_owner_index_for_outer_node(outer_index, outer_ring.size(), inner_ring.size())
+		outer_by_inner[owner_index].append(outer_index)
 
-	for source_index in range(current_row.size()):
-		var source_node: MapNodeData = current_row[source_index]
-		var chosen_targets: Array[int] = []
+	for inner_index in range(inner_ring.size()):
+		var inner_node: MapNodeData = inner_ring[inner_index]
+		var owned_targets: Array = outer_by_inner[inner_index]
 
-		for target_index in connections_by_source[source_index]:
-			chosen_targets.append(int(target_index))
+		for outer_index_value in owned_targets:
+			var outer_index: int = int(outer_index_value)
+			if _is_connection_valid(inner_node, outer_ring[outer_index], accepted_edges, all_nodes, content_rect):
+				inner_node.connected_to.append(outer_ring[outer_index].id)
+				accepted_edges.append({
+					"from": inner_node,
+					"to": outer_ring[outer_index],
+				})
 
-		chosen_targets.sort()
-		source_node.connected_to.clear()
-
-		for target_index in chosen_targets:
-			source_node.connected_to.append(next_row[target_index].id)
-
-
-func _build_primary_targets(
-	rng: RandomNumberGenerator,
-	current_row: Array[MapNodeData],
-	next_row: Array[MapNodeData]
-) -> Array[int]:
-	var primary_targets: Array[int] = []
-	primary_targets.resize(current_row.size())
-	var previous_target: int = 0
-
-	for source_index in range(current_row.size()):
-		var projected_target: int = _find_closest_target_index(current_row[source_index], next_row)
-		var min_target: int = previous_target
-		var max_target: int = next_row.size() - 1
-
-		if source_index < current_row.size() - 1:
-			max_target = min(max_target, next_row.size() - (current_row.size() - source_index))
-
-		var target_index: int = clamp(projected_target, min_target, max_target)
-		if source_index > 0:
-			target_index = min(target_index, previous_target + MAX_PRIMARY_TARGET_STEP)
-			target_index = max(target_index, previous_target)
-
-		if source_index == current_row.size() - 1:
-			target_index = next_row.size() - 1
-		elif source_index == 0:
-			target_index = 0 if projected_target == 0 else target_index
-
-		if source_index > 0 and target_index < previous_target:
-			target_index = previous_target
-
-		if source_index < current_row.size() - 1 and max_target < target_index:
-			target_index = max_target
-
-		primary_targets[source_index] = target_index
-		previous_target = target_index
-
-	if not primary_targets.is_empty():
-		primary_targets[0] = 0
-		primary_targets[primary_targets.size() - 1] = next_row.size() - 1
-
-	for index in range(1, primary_targets.size()):
-		primary_targets[index] = max(primary_targets[index], primary_targets[index - 1])
-
-	return primary_targets
-
-
-func _ensure_every_target_has_owner(
-	connections_by_source: Array[Array],
-	current_row: Array[MapNodeData],
-	next_row: Array[MapNodeData]
-) -> void:
-	for target_index in range(next_row.size()):
-		if _has_target_owner(connections_by_source, target_index):
+		if owned_targets.is_empty():
 			continue
 
-		var source_index: int = _find_best_source_for_target(target_index, connections_by_source, current_row, next_row)
-		if source_index >= 0 and not connections_by_source[source_index].has(target_index):
-			connections_by_source[source_index].append(target_index)
+		if rng.randf() <= 0.22:
+			var branch_candidate: int = int(owned_targets.back()) + 1
+			if branch_candidate < outer_ring.size() \
+			and not inner_node.connected_to.has(outer_ring[branch_candidate].id) \
+			and _is_connection_valid(inner_node, outer_ring[branch_candidate], accepted_edges, all_nodes, content_rect):
+				inner_node.connected_to.append(outer_ring[branch_candidate].id)
+				accepted_edges.append({
+					"from": inner_node,
+					"to": outer_ring[branch_candidate],
+				})
 
-
-func _add_optional_branches(
-	rng: RandomNumberGenerator,
-	connections_by_source: Array[Array],
-	current_row: Array[MapNodeData],
-	next_row: Array[MapNodeData]
-) -> void:
-	for source_index in range(current_row.size()):
-		if rng.randf() > 0.42:
+	for outer_node in outer_ring:
+		if _count_incoming_edges(inner_ring, outer_node.id) > 0:
 			continue
 
-		var primary_target: int = int(connections_by_source[source_index][0])
-		var candidates: Array[int] = []
+		var fallback_inner: MapNodeData = _find_best_connection_source(inner_ring, outer_node, accepted_edges, all_nodes, content_rect)
+		if fallback_inner != null:
+			fallback_inner.connected_to.append(outer_node.id)
+			accepted_edges.append({
+				"from": fallback_inner,
+				"to": outer_node,
+			})
 
-		for delta in [-1, 1]:
-			var candidate_target: int = primary_target + delta
-			if candidate_target < 0 or candidate_target >= next_row.size():
-				continue
-			if abs(candidate_target - primary_target) > MAX_EXTRA_TARGET_STEP:
-				continue
-			if connections_by_source[source_index].has(candidate_target):
-				continue
-			if not _is_connection_candidate_valid(source_index, candidate_target, connections_by_source, current_row, next_row):
-				continue
-			candidates.append(candidate_target)
-
-		if candidates.is_empty():
+	for inner_node in inner_ring:
+		if not inner_node.connected_to.is_empty():
 			continue
 
-		var chosen_index: int = rng.randi_range(0, candidates.size() - 1)
-		connections_by_source[source_index].append(candidates[chosen_index])
+		var fallback_outer: MapNodeData = _find_best_connection_target(inner_node, outer_ring, accepted_edges, all_nodes, content_rect)
+		if fallback_outer != null:
+			inner_node.connected_to.append(fallback_outer.id)
+			accepted_edges.append({
+				"from": inner_node,
+				"to": fallback_outer,
+			})
 
 
-func _find_closest_target_index(source_node: MapNodeData, next_row: Array[MapNodeData]) -> int:
-	var best_index: int = 0
-	var best_distance: float = INF
+func _get_owner_index_for_outer_node(outer_index: int, outer_count: int, inner_count: int) -> int:
+	if outer_count <= 1 or inner_count <= 1:
+		return 0
 
-	for target_index in range(next_row.size()):
-		var distance_to_target: float = absf(next_row[target_index].position.x - source_node.position.x)
-		if distance_to_target < best_distance:
-			best_distance = distance_to_target
-			best_index = target_index
-
-	return best_index
+	var ratio: float = float(outer_index) / float(outer_count - 1)
+	return clamp(int(round(ratio * float(inner_count - 1))), 0, inner_count - 1)
 
 
-func _has_target_owner(connections_by_source: Array[Array], target_index: int) -> bool:
-	for targets in connections_by_source:
-		if targets.has(target_index):
-			return true
-
-	return false
-
-
-func _find_best_source_for_target(
-	target_index: int,
-	connections_by_source: Array[Array],
-	current_row: Array[MapNodeData],
-	next_row: Array[MapNodeData]
-) -> int:
-	var best_source: int = -1
-	var best_score: float = INF
-
-	for source_index in range(current_row.size()):
-		if not _is_connection_candidate_valid(source_index, target_index, connections_by_source, current_row, next_row):
-			continue
-
-		var score: float = absf(current_row[source_index].position.x - next_row[target_index].position.x)
-		score += float(connections_by_source[source_index].size()) * 48.0
-
-		if score < best_score:
-			best_score = score
-			best_source = source_index
-
-	return best_source
-
-
-func _is_connection_candidate_valid(
-	source_index: int,
-	target_index: int,
-	connections_by_source: Array[Array],
-	current_row: Array[MapNodeData],
-	next_row: Array[MapNodeData]
+func _is_connection_valid(
+	from_node: MapNodeData,
+	to_node: MapNodeData,
+	accepted_edges: Array[Dictionary],
+	all_nodes: Array[MapNodeData],
+	content_rect: Rect2
 ) -> bool:
-	var source_node: MapNodeData = current_row[source_index]
-	var target_node: MapNodeData = next_row[target_index]
-
-	for other_source_index in range(connections_by_source.size()):
-		for other_target_index_value in connections_by_source[other_source_index]:
-			var other_target_index := int(other_target_index_value)
-			if other_source_index == source_index and other_target_index == target_index:
-				continue
-			if other_source_index == source_index or other_target_index == target_index:
-				continue
-			if _segments_cross(
-				source_node.position,
-				target_node.position,
-				current_row[other_source_index].position,
-				next_row[other_target_index].position
-			):
-				return false
-			if _segments_stack_too_closely(
-				source_node.position,
-				target_node.position,
-				current_row[other_source_index].position,
-				next_row[other_target_index].position
-			):
-				return false
-
-	var horizontal_jump: float = absf(target_node.position.x - source_node.position.x)
-	var average_row_gap: float = 0.0
-	if next_row.size() > 1:
-		average_row_gap = (next_row[next_row.size() - 1].position.x - next_row[0].position.x) / float(next_row.size() - 1)
-
-	if average_row_gap > 0.0 and horizontal_jump > average_row_gap * 1.35:
+	if not content_rect.grow(-EDGE_BOUNDS_PADDING).has_point(from_node.position) or not content_rect.grow(-EDGE_BOUNDS_PADDING).has_point(to_node.position):
 		return false
+
+	for edge in accepted_edges:
+		var edge_from: MapNodeData = edge["from"] as MapNodeData
+		var edge_to: MapNodeData = edge["to"] as MapNodeData
+		if edge_from == null or edge_to == null:
+			continue
+		if edge_from == from_node or edge_to == to_node or edge_from == to_node or edge_to == from_node:
+			continue
+		if Geometry2D.segment_intersects_segment(from_node.position, to_node.position, edge_from.position, edge_to.position) != null:
+			return false
+		if _segments_stack_too_closely(from_node.position, to_node.position, edge_from.position, edge_to.position):
+			return false
+
+	for node in all_nodes:
+		if node == from_node or node == to_node:
+			continue
+		if Geometry2D.get_closest_point_to_segment(node.position, from_node.position, to_node.position).distance_to(node.position) < NODE_CLEARANCE_RADIUS:
+			return false
 
 	return true
 
 
-func _segments_cross(a1: Vector2, a2: Vector2, b1: Vector2, b2: Vector2) -> bool:
-	var orientation_a := signf((a2.x - a1.x) * (b1.y - a1.y) - (a2.y - a1.y) * (b1.x - a1.x))
-	var orientation_b := signf((a2.x - a1.x) * (b2.y - a1.y) - (a2.y - a1.y) * (b2.x - a1.x))
-	var orientation_c := signf((b2.x - b1.x) * (a1.y - b1.y) - (b2.y - b1.y) * (a1.x - b1.x))
-	var orientation_d := signf((b2.x - b1.x) * (a2.y - b1.y) - (b2.y - b1.y) * (a2.x - b1.x))
-	return orientation_a != orientation_b and orientation_c != orientation_d
-
-
 func _segments_stack_too_closely(a1: Vector2, a2: Vector2, b1: Vector2, b2: Vector2) -> bool:
-	if absf(a1.x - b1.x) > 54.0:
-		return false
-	if absf(a2.x - b2.x) > 54.0:
-		return false
+	var samples := [0.2, 0.4, 0.6, 0.8]
+	for sample_t in samples:
+		var point_a: Vector2 = a1.lerp(a2, float(sample_t))
+		var point_b: Vector2 = b1.lerp(b2, float(sample_t))
+		if point_a.distance_to(point_b) < MIN_EDGE_SEPARATION:
+			return true
+	return false
 
-	var slope_a: float = (a2.x - a1.x) / maxf(1.0, absf(a2.y - a1.y))
-	var slope_b: float = (b2.x - b1.x) / maxf(1.0, absf(b2.y - b1.y))
-	return absf(slope_a - slope_b) < 0.08
+
+func _build_content_rect(map_width: float, map_height: float, config: Dictionary) -> Rect2:
+	var margin_left: float = float(config.get("content_margin_left", 120.0))
+	var margin_right: float = float(config.get("content_margin_right", 120.0))
+	var margin_top: float = float(config.get("content_margin_top", 120.0))
+	var margin_bottom: float = float(config.get("content_margin_bottom", 120.0))
+	var safe_width: float = max(320.0, map_width - margin_left - margin_right)
+	var safe_height: float = max(320.0, map_height - margin_top - margin_bottom)
+	return Rect2(Vector2(margin_left, margin_top), Vector2(safe_width, safe_height))
+
+
+func _build_ring_radii(
+	ring_total: int,
+	center_margin: float,
+	ring_spacing: float,
+	ring_radius_jitter: float,
+	content_rect: Rect2
+) -> Array[float]:
+	var radii: Array[float] = []
+	radii.resize(ring_total)
+	if ring_total <= 0:
+		return radii
+
+	radii[0] = 0.0
+	if ring_total == 1:
+		return radii
+
+	var max_radius: float = max(80.0, min(content_rect.size.x, content_rect.size.y) * 0.5 - NODE_CLEARANCE_RADIUS - 18.0)
+	var desired_outer_radius: float = center_margin + float(max(0, ring_total - 2)) * ring_spacing
+	var outer_radius: float = min(desired_outer_radius, max_radius)
+	var inner_radius: float = max(72.0, min(center_margin, outer_radius * 0.42))
+	inner_radius = min(inner_radius, outer_radius - max(56.0, ring_radius_jitter * 2.0))
+
+	if ring_total == 2:
+		radii[1] = outer_radius
+		return radii
+
+	for depth in range(1, ring_total):
+		var t: float = float(depth - 1) / float(ring_total - 2)
+		var target_radius: float = lerpf(inner_radius, outer_radius, t)
+		if depth > 1:
+			target_radius = max(target_radius, float(radii[depth - 1]) + max(28.0, ring_radius_jitter * 1.5))
+		radii[depth] = min(target_radius, outer_radius)
+
+	return radii
+
+
+func _clamp_point_to_rect(point: Vector2, content_rect: Rect2) -> Vector2:
+	var safe_rect: Rect2 = content_rect.grow(-NODE_CLEARANCE_RADIUS)
+	return Vector2(
+		clampf(point.x, safe_rect.position.x, safe_rect.end.x),
+		clampf(point.y, safe_rect.position.y, safe_rect.end.y)
+	)
+
+
+func _count_incoming_edges(inner_ring: Array[MapNodeData], target_id: int) -> int:
+	var count: int = 0
+	for node in inner_ring:
+		if node.connected_to.has(target_id):
+			count += 1
+	return count
+
+
+func _find_best_connection_source(
+	inner_ring: Array[MapNodeData],
+	outer_node: MapNodeData,
+	accepted_edges: Array[Dictionary],
+	all_nodes: Array[MapNodeData],
+	content_rect: Rect2
+) -> MapNodeData:
+	var best_node: MapNodeData = null
+	var best_score: float = INF
+	for inner_node in inner_ring:
+		if _is_connection_valid(inner_node, outer_node, accepted_edges, all_nodes, content_rect):
+			var score: float = absf(wrapf(inner_node.angle - outer_node.angle, -PI, PI)) + float(inner_node.connected_to.size()) * 0.2
+			if score < best_score:
+				best_score = score
+				best_node = inner_node
+	return best_node
+
+
+func _find_best_connection_target(
+	inner_node: MapNodeData,
+	outer_ring: Array[MapNodeData],
+	accepted_edges: Array[Dictionary],
+	all_nodes: Array[MapNodeData],
+	content_rect: Rect2
+) -> MapNodeData:
+	var best_node: MapNodeData = null
+	var best_score: float = INF
+	for outer_node in outer_ring:
+		if _is_connection_valid(inner_node, outer_node, accepted_edges, all_nodes, content_rect):
+			var score: float = absf(wrapf(inner_node.angle - outer_node.angle, -PI, PI))
+			if score < best_score:
+				best_score = score
+				best_node = outer_node
+	return best_node
 
 
 func _assign_node_types(
 	rng: RandomNumberGenerator,
 	run: MapRunData,
-	rows: Array[Array],
+	rings: Array[Array],
 	config: Dictionary
 ) -> void:
-	rows[0][0].node_type = TYPE_COMBAT
-	rows[rows.size() - 1][0].node_type = TYPE_BOSS
-
-	for row_index in range(1, rows.size() - 1):
-		for node in rows[row_index]:
-			node.node_type = _pick_node_type(rng, run, node, config)
+	for depth in range(rings.size()):
+		for node in rings[depth]:
+			if depth == rings.size() - 1:
+				node.node_type = TYPE_BOSS if node == rings[depth][0] else TYPE_ELITE
+			elif depth == 0:
+				node.node_type = TYPE_RESOURCE
+			else:
+				node.node_type = _pick_node_type(rng, run, node, config)
 
 
 func _pick_node_type(
@@ -483,15 +450,13 @@ func _pick_node_type(
 		TYPE_RESOURCE: int(config.get("resource_weight", 13)),
 	}
 
-	if bool(config.get("prevent_consecutive_safe_nodes", true)):
-		var parent_nodes: Array[MapNodeData] = _get_parent_nodes(run, node.id)
-		var all_parents_non_combat: bool = not parent_nodes.is_empty()
-
+	var parent_nodes: Array[MapNodeData] = _get_parent_nodes(run, node.id)
+	if not parent_nodes.is_empty():
+		var all_parents_non_combat: bool = true
 		for parent in parent_nodes:
 			if parent.node_type == TYPE_COMBAT or parent.node_type == TYPE_ELITE:
 				all_parents_non_combat = false
 				break
-
 		if all_parents_non_combat:
 			weights[TYPE_EVENT] = 0
 			weights[TYPE_RESOURCE] = 0
@@ -504,7 +469,6 @@ func _pick_node_type(
 		return TYPE_COMBAT
 
 	var roll: int = rng.randi_range(1, total_weight)
-
 	for node_type in weights.keys():
 		roll -= int(weights[node_type])
 		if roll <= 0:
@@ -515,9 +479,7 @@ func _pick_node_type(
 
 func _get_parent_nodes(run: MapRunData, node_id: int) -> Array[MapNodeData]:
 	var parents: Array[MapNodeData] = []
-
 	for candidate in run.nodes:
 		if candidate.connected_to.has(node_id):
 			parents.append(candidate)
-
 	return parents

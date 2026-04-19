@@ -10,6 +10,7 @@ const TYPE_EVENT := &"event"
 @export var id: int = -1
 @export var row: int = 0
 @export var position: Vector2 = Vector2.ZERO
+@export var angle: float = 0.0
 @export var node_type: StringName = TYPE_COMBAT
 @export var connected_to: Array[int] = []
 @export var visited: bool = false
@@ -20,10 +21,11 @@ const TYPE_EVENT := &"event"
 
 
 func duplicate_node() -> MapNodeData:
-	var copy := MapNodeData.new()
+	var copy: MapNodeData = MapNodeData.new()
 	copy.id = id
 	copy.row = row
 	copy.position = position
+	copy.angle = angle
 	copy.node_type = node_type
 	copy.connected_to = connected_to.duplicate()
 	copy.visited = visited
