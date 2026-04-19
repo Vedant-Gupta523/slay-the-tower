@@ -36,6 +36,34 @@ func duplicate_node() -> MapNodeData:
 	return copy
 
 
+func is_combat_node() -> bool:
+	return is_combat_type(node_type)
+
+
+func is_terminal_boss() -> bool:
+	return node_type == TYPE_BOSS
+
+
+func get_type_label() -> String:
+	match node_type:
+		TYPE_COMBAT:
+			return "Combat"
+		TYPE_ELITE:
+			return "Elite"
+		TYPE_BOSS:
+			return "Boss"
+		TYPE_RESOURCE:
+			return "Resource"
+		TYPE_EVENT:
+			return "Event"
+		_:
+			return "Unknown"
+
+
+static func is_combat_type(value: StringName) -> bool:
+	return value == TYPE_COMBAT or value == TYPE_ELITE or value == TYPE_BOSS
+
+
 static func normalize_node_type(value: StringName) -> StringName:
 	match value:
 		TYPE_COMBAT, TYPE_ELITE, TYPE_BOSS, TYPE_RESOURCE, TYPE_EVENT:

@@ -1,5 +1,8 @@
 extends Node
 
+signal resources_changed
+signal expedition_state_changed
+
 const RESOURCE_MONSTER_MATERIALS := &"monster_materials"
 const RESOURCE_ORES := &"ores"
 const RESOURCE_HERBS := &"herbs"
@@ -27,6 +30,8 @@ func start_or_continue(unit_data: UnitData = null) -> void:
 	is_active = true
 	dungeon_index = 1
 	initialize_from_unit_data(unit_data)
+	emit_signal("expedition_state_changed")
+	emit_signal("resources_changed")
 
 
 func reset() -> void:
@@ -42,6 +47,8 @@ func reset() -> void:
 	is_active = false
 	is_failed = false
 	is_complete = false
+	emit_signal("expedition_state_changed")
+	emit_signal("resources_changed")
 
 
 func complete_current_dungeon() -> bool:
@@ -51,19 +58,23 @@ func complete_current_dungeon() -> bool:
 	if dungeon_index >= max_dungeons:
 		is_complete = true
 		is_active = false
+		emit_signal("expedition_state_changed")
 		return true
 
 	dungeon_index += 1
+	emit_signal("expedition_state_changed")
 	return false
 
 
 func fail_expedition() -> void:
 	is_failed = true
 	is_active = false
+	emit_signal("expedition_state_changed")
 
 
 func add_gold(amount: int) -> void:
 	gold = max(0, gold + amount)
+	emit_signal("resources_changed")
 
 
 func spend_gold(amount: int) -> bool:
@@ -74,6 +85,7 @@ func spend_gold(amount: int) -> bool:
 		return false
 
 	gold -= amount
+	emit_signal("resources_changed")
 	return true
 
 
@@ -90,6 +102,7 @@ func add_resource(type: StringName, amount: int) -> void:
 			herbs += amount
 		_:
 			push_warning("Unknown expedition resource type: %s" % String(type))
+	emit_signal("resources_changed")
 
 
 func spend_resource(type: StringName, amount: int) -> bool:
@@ -110,6 +123,7 @@ func spend_resource(type: StringName, amount: int) -> bool:
 		_:
 			return false
 
+	emit_signal("resources_changed")
 	return true
 
 
@@ -151,6 +165,8 @@ func capture_from_player_unit(player: BattleUnit) -> void:
 	skill_books.assign(loadout.owned_skills)
 	equipped_skills.clear()
 	equipped_skills.assign(loadout.get_equipped_skills())
+	emit_signal("resources_changed")
+	emit_signal("expedition_state_changed")
 
 
 func apply_to_player_unit(player: BattleUnit) -> void:

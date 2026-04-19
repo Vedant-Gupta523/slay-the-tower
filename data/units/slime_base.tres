@@ -7,7 +7,7 @@
 [resource]
 script = ExtResource("1_eciro")
 unit_name = "Slime"
-max_hp = 10
+max_hp = 1
 atk = 6
 def = 1
 spd = 8

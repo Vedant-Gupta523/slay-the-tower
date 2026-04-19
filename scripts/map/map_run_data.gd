@@ -76,21 +76,36 @@ func is_edge_revealed(from_id: int, to_id: int) -> bool:
 
 
 func can_travel_to(node_id: int) -> bool:
+	return can_move_to(node_id)
+
+
+func can_move_to(node_id: int) -> bool:
 	var node: MapNodeData = get_node_by_id(node_id)
 	if node == null:
 		return false
 
-	return node.is_visible and node.is_available
+	if node.id == current_node_id:
+		return false
+
+	if node.is_visible and node.is_available:
+		return true
+
+	return _can_backtrack_to_node(node_id)
 
 
 func should_resolve_node(node_id: int) -> bool:
 	var node: MapNodeData = get_node_by_id(node_id)
-	return node != null and not node.is_completed
+	return node != null and can_move_to(node_id) and not node.is_completed
 
 
 func move_to_node(node_id: int) -> bool:
-	if not can_travel_to(node_id):
+	if not can_move_to(node_id):
 		return false
+
+	var node: MapNodeData = get_node_by_id(node_id)
+	if node != null and node.is_completed:
+		_move_to_completed_node(node_id)
+		return true
 
 	mark_node_visited(node_id)
 	return true
@@ -188,15 +203,55 @@ func _update_available_nodes() -> void:
 
 	for connected_id in get_connected_node_ids(current_node_id):
 		var connected_node: MapNodeData = get_node_by_id(connected_id)
-		if connected_node == null or connected_node.row <= current_node.row:
+		if connected_node == null:
+			continue
+
+		if connected_node.is_completed:
+			connected_node.is_visible = true
+			connected_node.is_available = connected_node.id != current_node_id
+			continue
+
+		if connected_node.row <= current_node.row:
 			continue
 		if not revealed_node_ids.has(connected_id):
 			continue
 
 		connected_node.is_visible = true
-		connected_node.is_available = not connected_node.is_completed
+		connected_node.is_available = true
 
 	current_node.is_available = false
+
+
+func _move_to_completed_node(node_id: int) -> void:
+	var node: MapNodeData = get_node_by_id(node_id)
+	if node == null:
+		return
+
+	var previous_node_id: int = current_node_id
+	if previous_node_id >= 0 and previous_node_id != node_id:
+		_mark_node_history(previous_node_id)
+		_add_traveled_edge(previous_node_id, node_id)
+
+	current_node_id = node_id
+	started = true
+	node.visited = true
+	node.is_completed = true
+	node.is_discovered = true
+	node.is_visible = true
+	_mark_node_history(node_id)
+	_reveal_node(node_id)
+	refresh_node_visibility()
+
+
+func _can_backtrack_to_node(node_id: int) -> bool:
+	if current_node_id < 0:
+		return false
+
+	var node: MapNodeData = get_node_by_id(node_id)
+	if node == null or not node.is_completed:
+		return false
+
+	return get_connected_node_ids(current_node_id).has(node_id)
 
 
 func _mark_node_history(node_id: int) -> void:

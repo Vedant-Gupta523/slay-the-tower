@@ -4,6 +4,7 @@ extends Node
 signal battle_won
 signal battle_lost
 signal battle_exited
+signal rewards_granted(rewards: Array[Dictionary])
 
 @export var player_data: UnitData
 @export var enemy_data: UnitData
@@ -328,9 +329,11 @@ func _on_reward_selected(reward_index: int) -> void:
 	if player.get_equipped_item(item.slot_type) == null:
 		player.equip_item(item)
 		view.set_log_text("Equipped %s." % item.item_name)
+		emit_signal("rewards_granted", [_build_gear_reward_entry(item, true)])
 	else:
 		player.add_to_reserve(item)
 		view.set_log_text("Stored %s in reserve." % item.item_name)
+		emit_signal("rewards_granted", [_build_gear_reward_entry(item, false)])
 
 	update_ui()
 	_emit_battle_result(&"battle_won")
@@ -397,3 +400,13 @@ func _emit_battle_result(signal_name: StringName) -> void:
 
 	_result_emitted = true
 	call_deferred("emit_signal", signal_name)
+
+
+func _build_gear_reward_entry(item: EquipmentData, equipped_now: bool) -> Dictionary:
+	return {
+		"type": "gear",
+		"name": item.item_name,
+		"quantity": 1,
+		"line": "New Gear: %s" % item.item_name,
+		"detail": "Equipped now" if equipped_now else "Stored in reserve",
+	}
