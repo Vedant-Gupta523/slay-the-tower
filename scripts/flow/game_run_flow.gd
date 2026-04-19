@@ -17,17 +17,25 @@ class_name GameRunFlow
 @onready var skills_button: Button = %SkillsButton
 @onready var equipment_screen: EquipmentScreen = %EquipmentScreen
 @onready var skill_loadout_screen: SkillLoadoutScreen = %SkillLoadoutScreen
+@onready var reward_notification_panel: PanelContainer = %RewardNotificationPanel
+@onready var reward_notification_title: Label = %RewardNotificationTitle
+@onready var reward_notification_list: VBoxContainer = %RewardNotificationList
 
 var _world_map_controller: WorldMapController
 var _battle_controller: BattleController
 var _main_base_controller: MainBaseController
 var _player_unit: PlayerUnit
 var _active_battle_node_type: StringName = &""
+var _active_node_resolution: Dictionary = {}
+var _reward_notification_tween: Tween
+var _reward_notification_version: int = 0
+var _pending_battle_reward_entries: Array[Dictionary] = []
 
 
 func _ready() -> void:
 	_ensure_expedition_state()
 	_ensure_player_unit()
+	_setup_reward_notification_panel()
 	inventory_button.pressed.connect(_on_inventory_button_pressed)
 	skills_button.pressed.connect(_on_skills_button_pressed)
 	equipment_screen.equip_reserve_requested.connect(_on_equipment_screen_equip_reserve_requested)
@@ -61,9 +69,10 @@ func _open_world_map(create_run_if_missing: bool = false) -> void:
 	_world_map_controller = world_map
 	_battle_controller = null
 	_active_battle_node_type = &""
+	_active_node_resolution.clear()
 	_set_inventory_button_visible(true)
 	_set_skills_button_visible(true)
-	world_map.node_selected.connect(_on_world_map_node_selected)
+	world_map.node_resolution_requested.connect(_on_world_map_resolution_requested)
 
 	if create_run_if_missing and not map_run_state.has_active_run():
 		world_map.start_new_run(_get_current_dungeon_seed())
@@ -98,12 +107,15 @@ func _open_battle_for_node(node_data: MapNodeData) -> void:
 	_battle_controller = battle_controller
 	_main_base_controller = null
 	_active_battle_node_type = node_data.node_type
+	_pending_battle_reward_entries.clear()
 	_set_inventory_button_visible(false)
 	_set_skills_button_visible(false)
 
 	_battle_controller.battle_won.connect(_on_battle_won)
 	_battle_controller.battle_lost.connect(_on_battle_lost)
 	_battle_controller.battle_exited.connect(_on_battle_exited)
+	if _battle_controller.has_signal("rewards_granted"):
+		_battle_controller.rewards_granted.connect(_on_battle_rewards_granted)
 
 
 func _switch_to_instance(instance: Node) -> void:
@@ -225,43 +237,41 @@ func _on_skill_screen_unequip_slot_requested(slot_index: int) -> void:
 	skill_loadout_screen.show_for_loadout(_player_unit.get_skill_loadout())
 
 
-func _on_world_map_node_selected(node_data: MapNodeData) -> void:
-	if not map_run_state.should_resolve_node(node_data.id):
-		map_run_state.move_to_node(node_data.id)
-		return
+func _on_world_map_resolution_requested(node_data: MapNodeData, resolution: Dictionary) -> void:
+	_active_node_resolution = resolution.duplicate(true)
 
-	map_run_state.set_pending_node(node_data.id)
-	_resolve_map_node(node_data)
-
-
-func _resolve_map_node(node_data: MapNodeData) -> void:
-	match node_data.node_type:
-		MapNodeData.TYPE_COMBAT, MapNodeData.TYPE_ELITE, MapNodeData.TYPE_BOSS:
+	match StringName(resolution.get("kind", &"")):
+		MapRunState.RESOLUTION_BATTLE:
 			_open_battle_for_node(node_data)
-		MapNodeData.TYPE_RESOURCE:
-			_resolve_resource_node(node_data)
-		MapNodeData.TYPE_EVENT:
-			_resolve_event_node(node_data)
+		MapRunState.RESOLUTION_RESOURCE, MapRunState.RESOLUTION_EVENT:
+			_apply_immediate_node_resolution(resolution)
+		_:
+			if _world_map_controller != null:
+				_world_map_controller.refresh()
 
 
-func _resolve_resource_node(_node_data: MapNodeData) -> void:
-	ExpeditionState.add_resource(ExpeditionState.RESOURCE_MONSTER_MATERIALS, 1)
-	map_run_state.commit_pending_node()
-	if _world_map_controller != null:
-		_world_map_controller.refresh()
-
-
-func _resolve_event_node(node_data: MapNodeData) -> void:
-	map_run_state.commit_pending_node()
-	print("Event node placeholder resolved: %d" % node_data.id)
+func _apply_immediate_node_resolution(resolution: Dictionary) -> void:
+	var granted_rewards: Array[Dictionary] = _apply_resolution_rewards(resolution)
+	if not granted_rewards.is_empty():
+		show_reward_notification(granted_rewards, String(resolution.get("title", "Rewards")))
+	map_run_state.complete_pending_resolution()
+	_active_node_resolution.clear()
 	if _world_map_controller != null:
 		_world_map_controller.refresh()
 
 
 func _on_battle_won() -> void:
 	_sync_profile_from_player()
-	map_run_state.commit_pending_node()
-	if _active_battle_node_type == MapNodeData.TYPE_BOSS:
+	var resolution: Dictionary = map_run_state.resolve_pending_battle_victory()
+	var granted_rewards: Array[Dictionary] = _apply_resolution_rewards(resolution)
+	var combined_rewards: Array[Dictionary] = []
+	combined_rewards.append_array(_pending_battle_reward_entries)
+	combined_rewards.append_array(granted_rewards)
+	if not combined_rewards.is_empty():
+		show_reward_notification(combined_rewards, String(resolution.get("title", "Rewards")))
+	_pending_battle_reward_entries.clear()
+	_active_node_resolution = resolution.duplicate(true)
+	if bool(resolution.get("clears_dungeon", false)) or _active_battle_node_type == MapNodeData.TYPE_BOSS:
 		_complete_current_dungeon()
 		return
 
@@ -270,11 +280,16 @@ func _on_battle_won() -> void:
 
 func _on_battle_lost() -> void:
 	_sync_profile_from_player()
+	_active_node_resolution = map_run_state.resolve_pending_battle_defeat()
+	_pending_battle_reward_entries.clear()
 	_fail_expedition()
 
 
 func _on_battle_exited() -> void:
 	_sync_profile_from_player()
+	map_run_state.consume_pending_resolution()
+	_active_node_resolution.clear()
+	_pending_battle_reward_entries.clear()
 	_return_to_main_base_after_dungeon()
 
 
@@ -294,6 +309,8 @@ func _fail_expedition() -> void:
 func _return_to_main_base_after_dungeon() -> void:
 	map_run_state.clear_pending_node()
 	map_run_state.clear_run()
+	_active_node_resolution.clear()
+	_pending_battle_reward_entries.clear()
 	_open_main_base()
 
 
@@ -331,3 +348,173 @@ func _get_scaled_enemy_data(enemy_data: UnitData) -> UnitData:
 	scaled_enemy.atk = max(1, int(round(float(enemy_data.atk) * atk_multiplier)))
 	scaled_enemy.def = enemy_data.def + int(dungeon_bonus / 3)
 	return scaled_enemy
+
+
+func _apply_resolution_rewards(resolution: Dictionary) -> Array[Dictionary]:
+	if resolution.is_empty():
+		return []
+
+	var reward_gold: int = int(resolution.get("reward_gold", 0))
+	var penalty_gold: int = int(resolution.get("penalty_gold", 0))
+	var reward_resource_type: StringName = StringName(resolution.get("reward_resource_type", ""))
+	var reward_resource_amount: int = int(resolution.get("reward_resource_amount", 0))
+	var reward_skill_path: String = String(resolution.get("reward_skill_path", ""))
+	var granted_rewards: Array[Dictionary] = []
+
+	if reward_gold > 0:
+		ExpeditionState.add_gold(reward_gold)
+		granted_rewards.append(_build_amount_reward_entry("gold", "Gold", reward_gold))
+
+	if penalty_gold > 0:
+		ExpeditionState.spend_gold(penalty_gold)
+
+	if not String(reward_resource_type).is_empty() and reward_resource_amount > 0:
+		ExpeditionState.add_resource(reward_resource_type, reward_resource_amount)
+		granted_rewards.append(_build_amount_reward_entry(
+			"resource",
+			_get_resource_display_name(reward_resource_type),
+			reward_resource_amount
+		))
+
+	if not reward_skill_path.is_empty():
+		var reward_skill: SkillData = load(reward_skill_path) as SkillData
+		if reward_skill != null and not ExpeditionState.skill_books.has(reward_skill):
+			ExpeditionState.skill_books.append(reward_skill)
+			granted_rewards.append({
+				"type": "skill_book",
+				"name": reward_skill.skill_name,
+				"quantity": 1,
+				"line": "Skill Book Found: %s" % reward_skill.skill_name,
+				"detail": reward_skill.description,
+			})
+
+	return granted_rewards
+
+
+func show_reward_notification(rewards: Array[Dictionary], title: String = "Rewards") -> void:
+	if reward_notification_panel == null or reward_notification_title == null or reward_notification_list == null:
+		return
+
+	if rewards.is_empty():
+		return
+
+	_reward_notification_version += 1
+	var notification_version: int = _reward_notification_version
+	_clear_reward_notification_entries()
+	reward_notification_title.text = title
+
+	for reward in rewards:
+		reward_notification_list.add_child(_create_reward_entry_label(reward))
+
+	if _reward_notification_tween != null:
+		_reward_notification_tween.kill()
+		_reward_notification_tween = null
+
+	reward_notification_panel.visible = true
+	reward_notification_panel.modulate = Color(1.0, 1.0, 1.0, 0.0)
+	reward_notification_panel.scale = Vector2(0.97, 0.97)
+	reward_notification_panel.pivot_offset = reward_notification_panel.size * 0.5
+
+	_reward_notification_tween = create_tween()
+	_reward_notification_tween.set_parallel(true)
+	_reward_notification_tween.tween_property(reward_notification_panel, "modulate:a", 1.0, 0.18)
+	_reward_notification_tween.tween_property(reward_notification_panel, "scale", Vector2.ONE, 0.18)
+
+	await get_tree().create_timer(2.4).timeout
+
+	if reward_notification_panel == null or not reward_notification_panel.visible or notification_version != _reward_notification_version:
+		return
+
+	_reward_notification_tween = create_tween()
+	_reward_notification_tween.set_parallel(true)
+	_reward_notification_tween.tween_property(reward_notification_panel, "modulate:a", 0.0, 0.24)
+	_reward_notification_tween.tween_property(reward_notification_panel, "scale", Vector2(0.98, 0.98), 0.24)
+	await _reward_notification_tween.finished
+	reward_notification_panel.visible = false
+
+
+func present_rewards(rewards: Array[Dictionary], title: String = "Rewards") -> void:
+	show_reward_notification(rewards, title)
+
+
+func _on_battle_rewards_granted(rewards: Array[Dictionary]) -> void:
+	for reward in rewards:
+		_pending_battle_reward_entries.append(reward.duplicate(true))
+
+
+func _setup_reward_notification_panel() -> void:
+	if reward_notification_panel == null:
+		return
+
+	var panel_style: StyleBoxFlat = StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.07, 0.08, 0.1, 0.96)
+	panel_style.border_color = Color(0.88, 0.78, 0.46, 0.92)
+	panel_style.border_width_left = 1
+	panel_style.border_width_top = 1
+	panel_style.border_width_right = 1
+	panel_style.border_width_bottom = 1
+	panel_style.corner_radius_top_left = 10
+	panel_style.corner_radius_top_right = 10
+	panel_style.corner_radius_bottom_right = 10
+	panel_style.corner_radius_bottom_left = 10
+	panel_style.shadow_color = Color(0.0, 0.0, 0.0, 0.22)
+	panel_style.shadow_size = 8
+	panel_style.shadow_offset = Vector2(0, 3)
+	reward_notification_panel.add_theme_stylebox_override("panel", panel_style)
+	reward_notification_panel.visible = false
+
+	if reward_notification_title != null:
+		reward_notification_title.modulate = Color(1.0, 0.94, 0.72)
+
+
+func _clear_reward_notification_entries() -> void:
+	if reward_notification_list == null:
+		return
+
+	for child in reward_notification_list.get_children():
+		child.queue_free()
+
+
+func _create_reward_entry_label(reward: Dictionary) -> Label:
+	var label: Label = Label.new()
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.text = String(reward.get("line", "Reward"))
+	label.modulate = _get_reward_entry_color(String(reward.get("type", "")))
+	return label
+
+
+func _get_reward_entry_color(reward_type: String) -> Color:
+	match reward_type:
+		"gold":
+			return Color(1.0, 0.87, 0.45)
+		"resource":
+			return Color(0.76, 0.96, 0.76)
+		"skill_book":
+			return Color(0.72, 0.84, 1.0)
+		"gear":
+			return Color(0.95, 0.82, 1.0)
+		"consumable":
+			return Color(0.82, 1.0, 0.9)
+		_:
+			return Color(0.94, 0.95, 0.97)
+
+
+func _build_amount_reward_entry(reward_type: String, reward_name: String, quantity: int) -> Dictionary:
+	return {
+		"type": reward_type,
+		"name": reward_name,
+		"quantity": quantity,
+		"line": "+%d %s" % [quantity, reward_name],
+	}
+
+
+func _get_resource_display_name(resource_type: StringName) -> String:
+	match resource_type:
+		ExpeditionState.RESOURCE_MONSTER_MATERIALS:
+			return "Monster Materials"
+		ExpeditionState.RESOURCE_ORES:
+			return "Ore"
+		ExpeditionState.RESOURCE_HERBS:
+			return "Herb"
+		_:
+			return String(resource_type).capitalize()

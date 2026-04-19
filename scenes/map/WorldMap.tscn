@@ -54,3 +54,47 @@ visible = false
 offset_right = 28.0
 offset_bottom = 28.0
 mouse_filter = 2
+
+[node name="ResourceHud" type="PanelContainer" parent="."]
+anchors_preset = 0
+offset_left = 24.0
+offset_top = 24.0
+offset_right = 236.0
+offset_bottom = 166.0
+mouse_filter = 2
+
+[node name="ResourceMargin" type="MarginContainer" parent="ResourceHud"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 12
+
+[node name="ResourceBox" type="VBoxContainer" parent="ResourceHud/ResourceMargin"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="ResourceTitle" type="Label" parent="ResourceHud/ResourceMargin/ResourceBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Resources"
+
+[node name="GoldLabel" type="Label" parent="ResourceHud/ResourceMargin/ResourceBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Gold: 0"
+
+[node name="MaterialsLabel" type="Label" parent="ResourceHud/ResourceMargin/ResourceBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Materials: 0"
+
+[node name="OresLabel" type="Label" parent="ResourceHud/ResourceMargin/ResourceBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Ores: 0"
+
+[node name="HerbsLabel" type="Label" parent="ResourceHud/ResourceMargin/ResourceBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Herbs: 0"

@@ -2,6 +2,7 @@ extends Control
 class_name WorldMapController
 
 signal node_selected(node_data: MapNodeData)
+signal node_resolution_requested(node_data: MapNodeData, resolution: Dictionary)
 
 @export var run_state_path: NodePath
 @export var auto_generate_if_missing: bool = true
@@ -39,6 +40,11 @@ signal node_selected(node_data: MapNodeData)
 
 @onready var map_view: MapView = $PanelContainer/MarginContainer/ScrollContainer/MapView
 @onready var scroll_container: ScrollContainer = $PanelContainer/MarginContainer/ScrollContainer
+@onready var resource_hud: PanelContainer = $ResourceHud
+@onready var gold_label: Label = %GoldLabel
+@onready var materials_label: Label = %MaterialsLabel
+@onready var ores_label: Label = %OresLabel
+@onready var herbs_label: Label = %HerbsLabel
 
 var _generator: MapGenerator = MapGenerator.new()
 var _run_state: MapRunState
@@ -50,14 +56,17 @@ func _ready() -> void:
 	if _run_state == null:
 		_run_state = _resolve_run_state()
 
+	_setup_resource_hud()
 	map_view.node_pressed.connect(_on_map_view_node_pressed)
 	if map_view.has_signal("pan_requested"):
 		map_view.pan_requested.connect(_on_map_pan_requested)
 	if map_view.has_signal("zoom_requested"):
 		map_view.zoom_requested.connect(_on_map_zoom_requested)
 	_bind_run_state()
+	_bind_expedition_state()
 	_map_zoom = clampf(initial_zoom, min_zoom, max_zoom)
 	_apply_zoom()
+	_refresh_resource_hud()
 
 	if auto_generate_if_missing and _run_state != null and not _run_state.has_active_run():
 		start_new_run(seed_override)
@@ -165,11 +174,28 @@ func _on_map_view_node_pressed(node_id: int) -> void:
 		return
 
 	var selected_node: MapNodeData = _run_state.get_run_data().get_node_by_id(node_id)
+	if selected_node == null:
+		return
+
+	var resolution: Dictionary = _run_state.resolve_selected_node(node_id)
 	emit_signal("node_selected", selected_node)
+
+	if resolution.is_empty():
+		return
+
+	if StringName(resolution.get("kind", &"")) == MapRunState.RESOLUTION_MOVE:
+		refresh()
+		return
+
+	emit_signal("node_resolution_requested", selected_node, resolution)
 
 
 func _on_run_state_updated(_run_data: MapRunData) -> void:
 	refresh()
+
+
+func _on_expedition_resources_changed() -> void:
+	_refresh_resource_hud()
 
 
 func _focus_map_on_current_or_start() -> void:
@@ -263,9 +289,62 @@ func _bind_run_state() -> void:
 		_run_state.run_updated.connect(_on_run_state_updated)
 
 
+func _bind_expedition_state() -> void:
+	if ExpeditionState == null:
+		return
+
+	if ExpeditionState.has_signal("resources_changed") and not ExpeditionState.resources_changed.is_connected(_on_expedition_resources_changed):
+		ExpeditionState.resources_changed.connect(_on_expedition_resources_changed)
+
+
 func _unbind_run_state() -> void:
 	if _run_state == null:
 		return
 
 	if _run_state.run_updated.is_connected(_on_run_state_updated):
 		_run_state.run_updated.disconnect(_on_run_state_updated)
+
+
+func _exit_tree() -> void:
+	if ExpeditionState != null and ExpeditionState.has_signal("resources_changed") and ExpeditionState.resources_changed.is_connected(_on_expedition_resources_changed):
+		ExpeditionState.resources_changed.disconnect(_on_expedition_resources_changed)
+
+
+func _setup_resource_hud() -> void:
+	if resource_hud == null:
+		return
+
+	var panel_style: StyleBoxFlat = StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.06, 0.08, 0.11, 0.92)
+	panel_style.border_color = Color(0.78, 0.82, 0.9, 0.72)
+	panel_style.border_width_left = 1
+	panel_style.border_width_top = 1
+	panel_style.border_width_right = 1
+	panel_style.border_width_bottom = 1
+	panel_style.corner_radius_top_left = 10
+	panel_style.corner_radius_top_right = 10
+	panel_style.corner_radius_bottom_right = 10
+	panel_style.corner_radius_bottom_left = 10
+	panel_style.shadow_color = Color(0.0, 0.0, 0.0, 0.18)
+	panel_style.shadow_size = 6
+	panel_style.shadow_offset = Vector2(0, 2)
+	resource_hud.add_theme_stylebox_override("panel", panel_style)
+
+	if gold_label != null:
+		gold_label.modulate = Color(1.0, 0.9, 0.52)
+	if materials_label != null:
+		materials_label.modulate = Color(0.82, 0.96, 0.82)
+	if ores_label != null:
+		ores_label.modulate = Color(0.78, 0.86, 0.95)
+	if herbs_label != null:
+		herbs_label.modulate = Color(0.72, 0.95, 0.8)
+
+
+func _refresh_resource_hud() -> void:
+	if gold_label == null:
+		return
+
+	gold_label.text = "Gold: %d" % ExpeditionState.gold
+	materials_label.text = "Materials: %d" % ExpeditionState.monster_materials
+	ores_label.text = "Ores: %d" % ExpeditionState.ores
+	herbs_label.text = "Herbs: %d" % ExpeditionState.herbs
