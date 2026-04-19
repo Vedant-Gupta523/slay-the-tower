@@ -16,12 +16,13 @@ const DISABLED_WASH_COLOR := Color(0.1, 0.11, 0.13, 0.38)
 const HOVER_RING_COLOR := Color(0.96, 0.94, 0.82, 0.16)
 const CURRENT_RING_COLOR := Color(1.0, 0.93, 0.62, 0.24)
 const REACHABLE_RING_COLOR := Color(0.78, 0.88, 1.0, 0.18)
+const VISITED_RING_COLOR := Color(0.92, 0.74, 0.46, 0.16)
 
 var node_data: MapNodeData
-var _is_current := false
-var _is_reachable := false
-var _is_visited := false
-var _is_hovered := false
+var _is_current: bool = false
+var _is_reachable: bool = false
+var _is_visited: bool = false
+var _is_hovered: bool = false
 
 
 func _ready() -> void:
@@ -77,6 +78,8 @@ func _draw() -> void:
 		ring_color = CURRENT_RING_COLOR
 	elif _is_reachable:
 		ring_color = REACHABLE_RING_COLOR
+	elif _is_visited:
+		ring_color = VISITED_RING_COLOR
 
 	if _is_hovered and not disabled:
 		ring_color = HOVER_RING_COLOR if not _is_current else CURRENT_RING_COLOR.lightened(0.08)
@@ -87,6 +90,11 @@ func _draw() -> void:
 	draw_circle(center + Vector2(0, 4), radius + 2.0, OUTER_SHADOW_COLOR)
 	_draw_node_body(center, radius, fill_color, border_color)
 	_draw_node_icon(center, radius * 0.98, icon_color)
+
+	if _is_visited and not _is_current:
+		draw_circle(center, radius * 0.22, border_color.lightened(0.08))
+		draw_line(center + Vector2(-radius * 0.16, 0), center + Vector2(-radius * 0.02, radius * 0.16), fill_color.darkened(0.7), 3.0, true)
+		draw_line(center + Vector2(-radius * 0.02, radius * 0.16), center + Vector2(radius * 0.22, -radius * 0.14), fill_color.darkened(0.7), 3.0, true)
 
 	if disabled:
 		draw_circle(center, radius - 1.0, DISABLED_WASH_COLOR)
@@ -154,7 +162,7 @@ func _draw_diamond(center: Vector2, radius: float, color: Color) -> void:
 
 
 func _draw_hex(center: Vector2, radius: float, color: Color) -> void:
-	var points := PackedVector2Array()
+	var points: PackedVector2Array = PackedVector2Array()
 	for index in range(6):
 		var angle: float = PI / 6.0 + TAU * float(index) / 6.0
 		points.append(center + Vector2(cos(angle), sin(angle)) * radius)
@@ -162,7 +170,7 @@ func _draw_hex(center: Vector2, radius: float, color: Color) -> void:
 
 
 func _draw_octagon(center: Vector2, radius: float, color: Color) -> void:
-	var points := PackedVector2Array()
+	var points: PackedVector2Array = PackedVector2Array()
 	for index in range(8):
 		var angle: float = PI / 8.0 + TAU * float(index) / 8.0
 		points.append(center + Vector2(cos(angle), sin(angle)) * radius)

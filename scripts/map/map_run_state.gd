@@ -65,7 +65,7 @@ func move_to_node(node_id: int) -> bool:
 	if not has_active_run():
 		return false
 
-	var moved := run_data.move_to_node(node_id)
+	var moved: bool = run_data.move_to_node(node_id)
 	if moved:
 		emit_signal("run_updated", run_data)
 
@@ -102,8 +102,13 @@ func commit_pending_node() -> void:
 func to_save_dict() -> Dictionary:
 	var save_data: Dictionary = {
 		"seed": 0,
+		"start_node_id": -1,
 		"current_node_id": -1,
 		"started": false,
+		"visited_node_ids": [],
+		"revealed_node_ids": [],
+		"traveled_edges": [],
+		"revealed_edges": [],
 		"nodes": [],
 	}
 
@@ -111,8 +116,13 @@ func to_save_dict() -> Dictionary:
 		return save_data
 
 	save_data["seed"] = run_data.seed
+	save_data["start_node_id"] = run_data.start_node_id
 	save_data["current_node_id"] = run_data.current_node_id
 	save_data["started"] = run_data.started
+	save_data["visited_node_ids"] = run_data.visited_node_ids.duplicate()
+	save_data["revealed_node_ids"] = run_data.revealed_node_ids.duplicate()
+	save_data["traveled_edges"] = run_data.traveled_edges.duplicate()
+	save_data["revealed_edges"] = run_data.revealed_edges.duplicate()
 
 	var node_entries: Array[Dictionary] = []
 	for node in run_data.nodes:
@@ -120,6 +130,7 @@ func to_save_dict() -> Dictionary:
 			"id": node.id,
 			"row": node.row,
 			"position": node.position,
+			"angle": node.angle,
 			"node_type": String(node.node_type),
 			"connected_to": node.connected_to.duplicate(),
 			"visited": node.visited,
@@ -134,17 +145,27 @@ func to_save_dict() -> Dictionary:
 
 
 func load_from_save_dict(save_data: Dictionary) -> void:
-	var loaded_run := MapRunData.new()
+	var loaded_run: MapRunData = MapRunData.new()
 	loaded_run.seed = int(save_data.get("seed", 0))
+	loaded_run.start_node_id = int(save_data.get("start_node_id", -1))
 	loaded_run.current_node_id = int(save_data.get("current_node_id", -1))
 	loaded_run.started = bool(save_data.get("started", false))
+	for visited_node_id in save_data.get("visited_node_ids", []):
+		loaded_run.visited_node_ids.append(int(visited_node_id))
+	for revealed_node_id in save_data.get("revealed_node_ids", []):
+		loaded_run.revealed_node_ids.append(int(revealed_node_id))
+	for traveled_edge in save_data.get("traveled_edges", []):
+		loaded_run.traveled_edges.append(String(traveled_edge))
+	for revealed_edge in save_data.get("revealed_edges", []):
+		loaded_run.revealed_edges.append(String(revealed_edge))
 
 	var node_entries: Array = save_data.get("nodes", [])
 	for node_entry in node_entries:
-		var node := MapNodeData.new()
+		var node: MapNodeData = MapNodeData.new()
 		node.id = int(node_entry.get("id", -1))
 		node.row = int(node_entry.get("row", 0))
 		node.position = node_entry.get("position", Vector2.ZERO)
+		node.angle = float(node_entry.get("angle", 0.0))
 		node.node_type = MapNodeData.normalize_node_type(StringName(node_entry.get("node_type", MapNodeData.TYPE_COMBAT)))
 		node.connected_to.clear()
 		for target_id in node_entry.get("connected_to", []):

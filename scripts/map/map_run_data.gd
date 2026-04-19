@@ -3,8 +3,13 @@ class_name MapRunData
 
 @export var seed: int = 0
 @export var nodes: Array[MapNodeData] = []
+@export var start_node_id: int = -1
 @export var current_node_id: int = -1
 @export var started: bool = false
+@export var visited_node_ids: Array[int] = []
+@export var revealed_node_ids: Array[int] = []
+@export var traveled_edges: Array[String] = []
+@export var revealed_edges: Array[String] = []
 
 
 func get_node_by_id(node_id: int) -> MapNodeData:
@@ -22,12 +27,11 @@ func get_reachable_node_ids(from_id: int) -> Array[int]:
 		return reachable_ids
 
 	if not started or from_id < 0:
-		var start_nodes: Array[MapNodeData] = get_nodes_in_row(0)
-		if not start_nodes.is_empty():
-			reachable_ids.append(start_nodes[0].id)
+		if start_node_id >= 0:
+			reachable_ids.append(start_node_id)
 		return reachable_ids
 
-	var from_node := get_node_by_id(from_id)
+	var from_node: MapNodeData = get_node_by_id(from_id)
 	if from_node == null:
 		return reachable_ids
 
@@ -39,7 +43,7 @@ func get_reachable_node_ids(from_id: int) -> Array[int]:
 
 func get_connected_node_ids(node_id: int) -> Array[int]:
 	var connected_ids: Array[int] = []
-	var node := get_node_by_id(node_id)
+	var node: MapNodeData = get_node_by_id(node_id)
 
 	if node != null:
 		for target_id in node.connected_to:
@@ -63,8 +67,16 @@ func get_available_node_ids() -> Array[int]:
 	return available_ids
 
 
+func is_edge_traveled(from_id: int, to_id: int) -> bool:
+	return traveled_edges.has(_make_edge_key(from_id, to_id))
+
+
+func is_edge_revealed(from_id: int, to_id: int) -> bool:
+	return revealed_edges.has(_make_edge_key(from_id, to_id))
+
+
 func can_travel_to(node_id: int) -> bool:
-	var node := get_node_by_id(node_id)
+	var node: MapNodeData = get_node_by_id(node_id)
 	if node == null:
 		return false
 
@@ -72,7 +84,7 @@ func can_travel_to(node_id: int) -> bool:
 
 
 func should_resolve_node(node_id: int) -> bool:
-	var node := get_node_by_id(node_id)
+	var node: MapNodeData = get_node_by_id(node_id)
 	return node != null and not node.is_completed
 
 
@@ -80,22 +92,19 @@ func move_to_node(node_id: int) -> bool:
 	if not can_travel_to(node_id):
 		return false
 
-	var node := get_node_by_id(node_id)
-	if node == null:
-		return false
-
-	current_node_id = node_id
-	started = true
-	node.is_discovered = true
-	node.is_visible = true
-	refresh_node_visibility()
+	mark_node_visited(node_id)
 	return true
 
 
 func mark_node_visited(node_id: int) -> void:
-	var node := get_node_by_id(node_id)
+	var node: MapNodeData = get_node_by_id(node_id)
 	if node == null:
 		return
+
+	var previous_node_id: int = current_node_id
+	if previous_node_id >= 0 and previous_node_id != node_id:
+		_mark_node_history(previous_node_id)
+		_add_traveled_edge(previous_node_id, node_id)
 
 	node.visited = true
 	node.is_completed = true
@@ -103,30 +112,36 @@ func mark_node_visited(node_id: int) -> void:
 	node.is_visible = true
 	current_node_id = node_id
 	started = true
+	_mark_node_history(node_id)
+	_reveal_node(node_id)
 	refresh_node_visibility()
 
 
 func initialize_node_visibility() -> void:
 	for node in nodes:
-		node.is_discovered = node.is_discovered or node.is_visible or node.visited
-		node.is_visible = false
+		node.is_discovered = revealed_node_ids.has(node.id)
+		node.is_visible = node.is_discovered
 		node.is_available = false
 		node.is_completed = node.is_completed or node.visited
-		node.visited = node.is_completed
+		node.visited = node.is_completed or visited_node_ids.has(node.id)
 
 	if nodes.is_empty():
 		return
 
 	if not started or current_node_id < 0:
-		var start_nodes: Array[MapNodeData] = get_nodes_in_row(0)
-		if start_nodes.is_empty():
+		var start_node: MapNodeData = get_node_by_id(start_node_id)
+		if start_node == null:
 			return
-
-		var start_node := start_nodes[0]
+		current_node_id = start_node_id
+		started = true
+		start_node.visited = true
+		start_node.is_completed = true
+		_mark_node_history(start_node_id)
 		start_node.is_discovered = true
 		start_node.is_visible = true
-		start_node.is_available = not start_node.is_completed
-		_reveal_connected_nodes(start_node, false)
+		_reveal_node(start_node_id)
+		_reveal_neighbors(start_node)
+		_update_available_nodes()
 		return
 
 	refresh_node_visibility()
@@ -138,17 +153,16 @@ func refresh_node_visibility() -> void:
 
 	for node in nodes:
 		node.is_completed = node.is_completed or node.visited
-		node.visited = node.is_completed
+		node.visited = node.is_completed or visited_node_ids.has(node.id)
 		node.is_available = false
-		if node.is_completed or node.is_discovered:
-			node.is_discovered = true
-			node.is_visible = true
+		node.is_discovered = revealed_node_ids.has(node.id) or node.visited
+		node.is_visible = node.is_discovered
 
 	if not started or current_node_id < 0:
 		initialize_node_visibility()
 		return
 
-	var current_node := get_node_by_id(current_node_id)
+	var current_node: MapNodeData = get_node_by_id(current_node_id)
 	if current_node == null:
 		return
 
@@ -156,39 +170,72 @@ func refresh_node_visibility() -> void:
 	current_node.is_completed = true
 	current_node.visited = true
 	current_node.is_discovered = true
-	_reveal_connected_nodes(current_node, true)
+	_reveal_node(current_node.id)
+	_reveal_neighbors(current_node)
 	_update_available_nodes()
-
-
-func _reveal_connected_nodes(source_node: MapNodeData, make_available: bool) -> void:
-	for target_id in source_node.connected_to:
-		var target_node := get_node_by_id(target_id)
-		if target_node == null:
-			continue
-
-		target_node.is_discovered = true
-		target_node.is_visible = true
-		target_node.is_available = make_available and not target_node.is_completed
 
 
 func _update_available_nodes() -> void:
 	if current_node_id < 0:
 		return
 
+	var current_node: MapNodeData = get_node_by_id(current_node_id)
+	if current_node == null:
+		return
+
 	for node in nodes:
 		node.is_available = false
 
 	for connected_id in get_connected_node_ids(current_node_id):
-		var connected_node := get_node_by_id(connected_id)
-		if connected_node == null or not connected_node.is_discovered:
+		var connected_node: MapNodeData = get_node_by_id(connected_id)
+		if connected_node == null or connected_node.row <= current_node.row:
+			continue
+		if not revealed_node_ids.has(connected_id):
 			continue
 
 		connected_node.is_visible = true
-		connected_node.is_available = true
+		connected_node.is_available = not connected_node.is_completed
 
-	var current_node := get_node_by_id(current_node_id)
-	if current_node != null:
-		current_node.is_available = false
+	current_node.is_available = false
+
+
+func _mark_node_history(node_id: int) -> void:
+	if not visited_node_ids.has(node_id):
+		visited_node_ids.append(node_id)
+
+
+func _reveal_node(node_id: int) -> void:
+	if not revealed_node_ids.has(node_id):
+		revealed_node_ids.append(node_id)
+
+
+func _reveal_neighbors(source_node: MapNodeData) -> void:
+	for target_id in source_node.connected_to:
+		var target_node: MapNodeData = get_node_by_id(target_id)
+		if target_node == null:
+			continue
+
+		_reveal_node(target_id)
+		_add_revealed_edge(source_node.id, target_id)
+		target_node.is_discovered = true
+		target_node.is_visible = true
+
+
+func _add_traveled_edge(from_id: int, to_id: int) -> void:
+	var edge_key: String = _make_edge_key(from_id, to_id)
+	if not traveled_edges.has(edge_key):
+		traveled_edges.append(edge_key)
+	_add_revealed_edge(from_id, to_id)
+
+
+func _add_revealed_edge(from_id: int, to_id: int) -> void:
+	var edge_key: String = _make_edge_key(from_id, to_id)
+	if not revealed_edges.has(edge_key):
+		revealed_edges.append(edge_key)
+
+
+func _make_edge_key(from_id: int, to_id: int) -> String:
+	return "%d:%d" % [from_id, to_id]
 
 
 func get_nodes_in_row(target_row: int) -> Array[MapNodeData]:
@@ -202,10 +249,15 @@ func get_nodes_in_row(target_row: int) -> Array[MapNodeData]:
 
 
 func duplicate_run() -> MapRunData:
-	var copy := MapRunData.new()
+	var copy: MapRunData = MapRunData.new()
 	copy.seed = seed
+	copy.start_node_id = start_node_id
 	copy.current_node_id = current_node_id
 	copy.started = started
+	copy.visited_node_ids = visited_node_ids.duplicate()
+	copy.revealed_node_ids = revealed_node_ids.duplicate()
+	copy.traveled_edges = traveled_edges.duplicate()
+	copy.revealed_edges = revealed_edges.duplicate()
 
 	for node in nodes:
 		copy.nodes.append(node.duplicate_node())

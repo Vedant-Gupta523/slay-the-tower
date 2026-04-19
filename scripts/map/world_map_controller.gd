@@ -8,20 +8,28 @@ signal node_selected(node_data: MapNodeData)
 @export var seed_override: int = 0
 
 @export_group("Generation")
-@export_range(8, 12, 1) var row_count: int = 10
-@export_range(2, 4, 1) var min_middle_nodes: int = 2
-@export_range(2, 4, 1) var max_middle_nodes: int = 4
-@export var map_width: float = 1024.0
-@export var side_padding: float = 96.0
-@export var top_padding: float = 96.0
-@export var horizontal_spacing: float = 220.0
-@export var vertical_spacing: float = 140.0
-@export var horizontal_jitter: float = 34.0
-@export var row_vertical_jitter: float = 18.0
-@export var min_node_gap: float = 92.0
-@export var row_center_drift: float = 72.0
-@export_range(0.0, 0.85, 0.01) var cluster_strength: float = 0.38
+@export_range(6, 10, 1) var row_count: int = 8
+@export_range(3, 6, 1) var min_middle_nodes: int = 3
+@export_range(4, 7, 1) var max_middle_nodes: int = 5
+@export var map_width: float = 1800.0
+@export var map_height: float = 1800.0
+@export var vertical_spacing: float = 170.0
+@export var horizontal_jitter: float = 0.18
+@export var row_vertical_jitter: float = 14.0
+@export var side_padding: float = 220.0
+@export var top_padding: float = 0.28
+@export var boss_count: int = 3
 @export var prevent_consecutive_safe_nodes: bool = true
+@export var content_margin_left: float = 120.0
+@export var content_margin_right: float = 120.0
+@export var content_margin_top: float = 120.0
+@export var content_margin_bottom: float = 120.0
+
+@export_group("Navigation")
+@export var zoom_step: float = 0.12
+@export var min_zoom: float = 0.65
+@export var max_zoom: float = 1.9
+@export var initial_zoom: float = 1.0
 
 @export_group("Type Weights")
 @export var combat_weight: int = 55
@@ -30,9 +38,12 @@ signal node_selected(node_data: MapNodeData)
 @export var resource_weight: int = 13
 
 @onready var map_view: MapView = $PanelContainer/MarginContainer/ScrollContainer/MapView
+@onready var scroll_container: ScrollContainer = $PanelContainer/MarginContainer/ScrollContainer
 
-var _generator := MapGenerator.new()
+var _generator: MapGenerator = MapGenerator.new()
 var _run_state: MapRunState
+var _debug_reveal_map: bool = false
+var _map_zoom: float = 1.0
 
 
 func _ready() -> void:
@@ -40,12 +51,38 @@ func _ready() -> void:
 		_run_state = _resolve_run_state()
 
 	map_view.node_pressed.connect(_on_map_view_node_pressed)
+	if map_view.has_signal("pan_requested"):
+		map_view.pan_requested.connect(_on_map_pan_requested)
+	if map_view.has_signal("zoom_requested"):
+		map_view.zoom_requested.connect(_on_map_zoom_requested)
 	_bind_run_state()
+	_map_zoom = clampf(initial_zoom, min_zoom, max_zoom)
+	_apply_zoom()
 
 	if auto_generate_if_missing and _run_state != null and not _run_state.has_active_run():
 		start_new_run(seed_override)
 	else:
 		refresh()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_P:
+		_debug_reveal_map = not _debug_reveal_map
+		_apply_debug_reveal_state()
+		get_viewport().set_input_as_handled()
+		return
+
+	if event is InputEventMouseButton and event.pressed:
+		var mouse_button_event: InputEventMouseButton = event
+		if not _is_mouse_over_map():
+			return
+
+		if mouse_button_event.button_index == MOUSE_BUTTON_WHEEL_UP:
+			_on_map_zoom_requested(1, map_view.get_local_mouse_position())
+			get_viewport().set_input_as_handled()
+		elif mouse_button_event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			_on_map_zoom_requested(-1, map_view.get_local_mouse_position())
+			get_viewport().set_input_as_handled()
 
 
 func start_new_run(seed: int = 0) -> void:
@@ -55,10 +92,13 @@ func start_new_run(seed: int = 0) -> void:
 func refresh() -> void:
 	if _run_state == null or not _run_state.has_active_run():
 		map_view.display_run(null, [], -1)
+		_apply_debug_reveal_state()
 		return
 
 	var run_data: MapRunData = _run_state.get_run_data()
 	map_view.display_run(run_data, _run_state.get_reachable_node_ids(), run_data.current_node_id)
+	_apply_debug_reveal_state()
+	call_deferred("_focus_map_on_current_or_start")
 
 
 func get_run_state() -> MapRunState:
@@ -83,15 +123,17 @@ func _build_generator_config() -> Dictionary:
 		"min_middle_nodes": min_middle_nodes,
 		"max_middle_nodes": max_middle_nodes,
 		"map_width": map_width,
-		"side_padding": side_padding,
-		"top_padding": top_padding,
-		"horizontal_spacing": horizontal_spacing,
-		"vertical_spacing": vertical_spacing,
-		"horizontal_jitter": horizontal_jitter,
-		"row_vertical_jitter": row_vertical_jitter,
-		"min_node_gap": min_node_gap,
-		"row_center_drift": row_center_drift,
-		"cluster_strength": cluster_strength,
+		"map_height": map_height,
+		"center_margin": side_padding,
+		"ring_spacing": vertical_spacing,
+		"angle_jitter": horizontal_jitter,
+		"ring_radius_jitter": row_vertical_jitter,
+		"phase_drift": top_padding,
+		"boss_count": boss_count,
+		"content_margin_left": content_margin_left,
+		"content_margin_right": content_margin_right,
+		"content_margin_top": content_margin_top,
+		"content_margin_bottom": content_margin_bottom,
 		"prevent_consecutive_safe_nodes": prevent_consecutive_safe_nodes,
 		"combat_weight": combat_weight,
 		"event_weight": event_weight,
@@ -128,6 +170,89 @@ func _on_map_view_node_pressed(node_id: int) -> void:
 
 func _on_run_state_updated(_run_data: MapRunData) -> void:
 	refresh()
+
+
+func _focus_map_on_current_or_start() -> void:
+	if _run_state == null or not _run_state.has_active_run():
+		return
+
+	var run_data: MapRunData = _run_state.get_run_data()
+	if run_data == null:
+		return
+
+	var target_node_id: int = run_data.current_node_id if run_data.current_node_id >= 0 else run_data.start_node_id
+	var target_node: MapNodeData = run_data.get_node_by_id(target_node_id)
+	if target_node == null:
+		return
+
+	var zoomed_position: Vector2 = target_node.position * _map_zoom
+	scroll_container.scroll_horizontal = int(max(0.0, zoomed_position.x - scroll_container.size.x * 0.5))
+	scroll_container.scroll_vertical = int(max(0.0, zoomed_position.y - scroll_container.size.y * 0.5))
+
+
+func _apply_debug_reveal_state() -> void:
+	if map_view == null:
+		return
+
+	if map_view.has_method("set_debug_reveal_map"):
+		map_view.call("set_debug_reveal_map", _debug_reveal_map)
+
+
+func _apply_zoom() -> void:
+	if map_view == null:
+		return
+
+	if map_view.has_method("set_zoom_factor"):
+		map_view.call("set_zoom_factor", _map_zoom)
+
+
+func _on_map_pan_requested(delta: Vector2) -> void:
+	scroll_container.scroll_horizontal = int(clampf(
+		scroll_container.scroll_horizontal - delta.x,
+		0.0,
+		_get_max_scroll().x
+	))
+	scroll_container.scroll_vertical = int(clampf(
+		scroll_container.scroll_vertical - delta.y,
+		0.0,
+		_get_max_scroll().y
+	))
+
+
+func _on_map_zoom_requested(direction: int, focus_position: Vector2) -> void:
+	var previous_zoom: float = _map_zoom
+	var next_zoom: float = clampf(_map_zoom + zoom_step * float(direction), min_zoom, max_zoom)
+	if is_equal_approx(previous_zoom, next_zoom):
+		return
+
+	var previous_scroll: Vector2 = Vector2(scroll_container.scroll_horizontal, scroll_container.scroll_vertical)
+	var viewport_focus: Vector2 = focus_position - previous_scroll
+	var content_focus: Vector2 = focus_position / previous_zoom
+
+	_map_zoom = next_zoom
+	_apply_zoom()
+
+	var updated_scroll: Vector2 = content_focus * _map_zoom - viewport_focus
+	var max_scroll: Vector2 = _get_max_scroll()
+	scroll_container.scroll_horizontal = int(clampf(updated_scroll.x, 0.0, max_scroll.x))
+	scroll_container.scroll_vertical = int(clampf(updated_scroll.y, 0.0, max_scroll.y))
+
+
+func _get_max_scroll() -> Vector2:
+	if map_view == null:
+		return Vector2.ZERO
+
+	return Vector2(
+		maxf(0.0, map_view.custom_minimum_size.x - scroll_container.size.x),
+		maxf(0.0, map_view.custom_minimum_size.y - scroll_container.size.y)
+	)
+
+
+func _is_mouse_over_map() -> bool:
+	if scroll_container == null:
+		return false
+
+	return Rect2(scroll_container.global_position, scroll_container.size).has_point(get_global_mouse_position())
 
 
 func _bind_run_state() -> void:
