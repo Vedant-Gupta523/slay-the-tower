@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="EquipmentData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/equipment/equipment_data.gd" id="1_crown_of_momentum"]
+
+[resource]
+script = ExtResource("1_crown_of_momentum")
+item_name = "Crown of Momentum"
+description = "A strange crown that makes decisive turns arrive sooner."
+slot_type = 2
+rarity = 4
+atk_bonus = 2
+def_bonus = 2
+spd_bonus = 5

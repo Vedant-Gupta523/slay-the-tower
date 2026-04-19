@@ -30,7 +30,8 @@ const RESULT_TURN_COLOR := Color(1.0, 0.95, 0.62)
 const HP_TWEEN_TIME := 0.28
 const IMPACT_BEAT_TIME := 0.12
 const REWARD_CARD_SIZE := Vector2(240, 190)
-const REWARD_CARD_NORMAL_COLOR := Color(0.12, 0.12, 0.12, 0.96)
+const REWARD_PANEL_COLOR := Color(0.055, 0.058, 0.064, 1.0)
+const REWARD_CARD_NORMAL_COLOR := Color(0.12, 0.12, 0.12, 1.0)
 const REWARD_CARD_HOVER_COLOR := Color(0.20, 0.20, 0.20, 1.0)
 const REWARD_CARD_SELECTED_COLOR := Color(0.34, 0.32, 0.18, 1.0)
 const REWARD_CARD_BORDER_COLOR := Color(0.58, 0.58, 0.58, 0.65)
@@ -67,6 +68,7 @@ const ENEMY_SPRITE_SHEET := preload("res://assets/Orc_Big.png")
 @onready var tooltip_label: RichTextLabel = %TooltipLabel
 @onready var popup_layer: Control = %PopupLayer
 @onready var reward_overlay: Control = get_node_or_null("%RewardOverlay") as Control
+@onready var reward_panel: PanelContainer = get_node_or_null("%RewardPanel") as PanelContainer
 @onready var reward_options: Container = get_node_or_null("%RewardOptions") as Container
 @onready var skip_reward_button: Button = get_node_or_null("%SkipRewardButton") as Button
 @onready var manage_equipment_button: Button = get_node_or_null("%ManageEquipmentButton") as Button
@@ -96,6 +98,7 @@ var restore_reward_after_equipment := false
 
 func _ready() -> void:
 	_setup_fx_layer()
+	_setup_reward_panel_style()
 	_setup_equipment_panel_styles()
 	_setup_battlers()
 	battler_stage.resized.connect(_position_battlers)
@@ -180,6 +183,12 @@ func _setup_equipment_panel_styles() -> void:
 		if panel != null:
 			panel.add_theme_stylebox_override("panel", _create_panel_style(EQUIPMENT_SECTION_COLOR, EQUIPMENT_SECTION_BORDER_COLOR, 1, 8))
 
+func _setup_reward_panel_style() -> void:
+	if reward_panel == null:
+		return
+
+	reward_panel.add_theme_stylebox_override("panel", _create_panel_style(REWARD_PANEL_COLOR, Color(0.62, 0.64, 0.68, 0.95), 1, 8))
+
 func _create_panel_style(background_color: Color, border_color: Color, border_width: int, radius: int) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = background_color
@@ -239,6 +248,7 @@ func show_equipment_rewards(rewards, equipped_items: Dictionary) -> void:
 		reward_options.add_child(_create_reward_card(item, equipped_items, i))
 
 	reward_overlay.visible = true
+	reward_overlay.move_to_front()
 
 func hide_equipment_rewards() -> void:
 	if reward_overlay != null:
@@ -289,7 +299,7 @@ func _render_equipped_slots(equipped_items: Dictionary) -> void:
 func _add_equipped_slot_button(slot_type: int, slot_name: String, equipped_items: Dictionary) -> void:
 	var item: EquipmentData = equipped_items.get(slot_type, null) as EquipmentData
 	var item_name := item.item_name if item != null else "Empty"
-	var button := _create_equipment_row_button("%s\n%s" % [slot_name, item_name])
+	var button := _create_equipment_row_button("%s\n%s" % [slot_name, item_name], item)
 	button.pressed.connect(_set_equipment_details.bind(item, slot_type, -1, button))
 	equipped_slots.add_child(button)
 
@@ -314,7 +324,7 @@ func _render_reserve_inventory(reserve_inventory: Array[EquipmentData]) -> void:
 
 	for i in range(reserve_inventory.size()):
 		var item := reserve_inventory[i]
-		var button := _create_equipment_row_button("%s\n%s" % [item.item_name, item.get_slot_name()])
+		var button := _create_equipment_row_button("%s\n%s" % [item.item_name, item.get_slot_name()], item)
 		button.pressed.connect(_set_equipment_details.bind(item, -1, i, button))
 		reserve_items.add_child(button)
 
@@ -336,8 +346,8 @@ func _set_equipment_details(item: EquipmentData, equipped_slot: int, reserve_ind
 		return
 
 	var lines: Array[String] = [
-		"[font_size=20][b]%s[/b][/font_size]" % item.item_name,
-		"[color=gray]%s[/color]" % item.get_slot_name(),
+		"[font_size=20][color=%s][b]%s[/b][/color][/font_size]" % [item.get_rarity_color().to_html(false), item.item_name],
+		"[color=gray]%s %s[/color]" % [item.get_rarity_name(), item.get_slot_name()],
 		"",
 		item.description,
 		"",
@@ -348,7 +358,10 @@ func _set_equipment_details(item: EquipmentData, equipped_slot: int, reserve_ind
 
 	if current_item != null and current_item != item:
 		lines.append("")
-		lines.append("Currently equipped: %s" % current_item.item_name)
+		lines.append("Currently equipped: [color=%s]%s[/color]" % [
+			current_item.get_rarity_color().to_html(false),
+			current_item.item_name
+		])
 		lines.append(_get_equipment_comparison_text(item, current_item))
 
 	equipment_details_label.text = "\n".join(lines)
@@ -363,14 +376,16 @@ func _update_equipment_action_buttons() -> void:
 		unequip_selected_button.visible = selected_equipped_slot >= 0 and selected_equipment_item != null
 		unequip_selected_button.disabled = selected_equipped_slot < 0 or selected_equipment_item == null
 
-func _create_equipment_row_button(text: String) -> Button:
+func _create_equipment_row_button(text: String, item: EquipmentData = null) -> Button:
 	var button := Button.new()
 	button.custom_minimum_size = Vector2(0, 52)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.text = text
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	_apply_equipment_button_style(button, EQUIPMENT_ROW_NORMAL_COLOR, EQUIPMENT_ROW_BORDER_COLOR, 1)
+	var border_color: Color = item.get_rarity_color() if item != null else EQUIPMENT_ROW_BORDER_COLOR
+	button.set_meta("rarity_border_color", border_color)
+	_apply_equipment_button_style(button, EQUIPMENT_ROW_NORMAL_COLOR, border_color, 1)
 	button.mouse_entered.connect(_on_equipment_row_hovered.bind(button, true))
 	button.mouse_exited.connect(_on_equipment_row_hovered.bind(button, false))
 	return button
@@ -380,25 +395,28 @@ func _on_equipment_row_hovered(button: Button, hovered: bool) -> void:
 		return
 
 	if hovered:
-		_apply_equipment_button_style(button, EQUIPMENT_ROW_HOVER_COLOR, EQUIPMENT_ROW_BORDER_COLOR, 1)
+		_apply_equipment_button_style(button, EQUIPMENT_ROW_HOVER_COLOR, _get_equipment_button_border_color(button), 1)
 	else:
-		_apply_equipment_button_style(button, EQUIPMENT_ROW_NORMAL_COLOR, EQUIPMENT_ROW_BORDER_COLOR, 1)
+		_apply_equipment_button_style(button, EQUIPMENT_ROW_NORMAL_COLOR, _get_equipment_button_border_color(button), 1)
 
 func _select_equipment_button(button: Button) -> void:
 	if selected_equipment_button != null and is_instance_valid(selected_equipment_button):
-		_apply_equipment_button_style(selected_equipment_button, EQUIPMENT_ROW_NORMAL_COLOR, EQUIPMENT_ROW_BORDER_COLOR, 1)
+		_apply_equipment_button_style(selected_equipment_button, EQUIPMENT_ROW_NORMAL_COLOR, _get_equipment_button_border_color(selected_equipment_button), 1)
 
 	selected_equipment_button = button
 
 	if selected_equipment_button != null:
-		_apply_equipment_button_style(selected_equipment_button, EQUIPMENT_ROW_SELECTED_COLOR, EQUIPMENT_ROW_SELECTED_BORDER_COLOR, 2)
+		_apply_equipment_button_style(selected_equipment_button, EQUIPMENT_ROW_SELECTED_COLOR, _get_equipment_button_border_color(selected_equipment_button), 2)
 
 func _apply_equipment_button_style(button: Button, background_color: Color, border_color: Color, border_width: int) -> void:
 	var style := _create_equipment_row_style(background_color, border_color, border_width)
 	var hover_color := background_color if background_color == EQUIPMENT_ROW_SELECTED_COLOR else EQUIPMENT_ROW_HOVER_COLOR
 	button.add_theme_stylebox_override("normal", style)
 	button.add_theme_stylebox_override("hover", _create_equipment_row_style(hover_color, border_color, border_width))
-	button.add_theme_stylebox_override("pressed", _create_equipment_row_style(EQUIPMENT_ROW_SELECTED_COLOR, EQUIPMENT_ROW_SELECTED_BORDER_COLOR, 2))
+	button.add_theme_stylebox_override("pressed", _create_equipment_row_style(EQUIPMENT_ROW_SELECTED_COLOR, border_color, 2))
+
+func _get_equipment_button_border_color(button: Button) -> Color:
+	return button.get_meta("rarity_border_color", EQUIPMENT_ROW_BORDER_COLOR) as Color
 
 func _create_equipment_row_style(background_color: Color, border_color: Color, border_width: int) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
@@ -425,10 +443,10 @@ func _get_equipment_slot_name(slot_type: int) -> String:
 
 func _get_equipment_comparison_text(item: EquipmentData, current_item: EquipmentData) -> String:
 	var diffs: Array[String] = []
-	_add_equipment_diff(diffs, "Max HP", item.max_hp_bonus - current_item.max_hp_bonus)
-	_add_equipment_diff(diffs, "ATK", item.atk_bonus - current_item.atk_bonus)
-	_add_equipment_diff(diffs, "DEF", item.def_bonus - current_item.def_bonus)
-	_add_equipment_diff(diffs, "SPD", item.spd_bonus - current_item.spd_bonus)
+	_add_equipment_diff(diffs, "Max HP", item.get_max_hp_bonus() - current_item.get_max_hp_bonus())
+	_add_equipment_diff(diffs, "ATK", item.get_atk_bonus() - current_item.get_atk_bonus())
+	_add_equipment_diff(diffs, "DEF", item.get_def_bonus() - current_item.get_def_bonus())
+	_add_equipment_diff(diffs, "SPD", item.get_spd_bonus() - current_item.get_spd_bonus())
 
 	if diffs.is_empty():
 		return "Stat change: none"
@@ -447,7 +465,7 @@ func _on_reward_card_pressed(card: PanelContainer, reward_index: int) -> void:
 		return
 
 	reward_choice_pending = true
-	card.add_theme_stylebox_override("panel", _create_reward_card_style(REWARD_CARD_SELECTED_COLOR, REWARD_CARD_HOVER_BORDER_COLOR, 2))
+	card.add_theme_stylebox_override("panel", _create_reward_card_style(REWARD_CARD_SELECTED_COLOR, _get_reward_card_border_color(card), 2))
 	card.scale = Vector2(1.03, 1.03)
 	await get_tree().create_timer(0.08).timeout
 	hide_equipment_rewards()
@@ -458,9 +476,11 @@ func _create_reward_card(item: EquipmentData, equipped_items: Dictionary, reward
 	var card := PanelContainer.new()
 	card.custom_minimum_size = REWARD_CARD_SIZE
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
 	card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	card.add_theme_stylebox_override("panel", _create_reward_card_style(REWARD_CARD_NORMAL_COLOR, REWARD_CARD_BORDER_COLOR, 1))
+	card.set_meta("rarity_border_color", item.get_rarity_color())
+	card.add_theme_stylebox_override("panel", _create_reward_card_style(REWARD_CARD_NORMAL_COLOR, item.get_rarity_color(), 1))
 
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 14)
@@ -476,11 +496,12 @@ func _create_reward_card(item: EquipmentData, equipped_items: Dictionary, reward
 	var name_label := Label.new()
 	name_label.text = item.item_name
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_label.add_theme_color_override("font_color", item.get_rarity_color())
 	name_label.add_theme_font_size_override("font_size", 18)
 	box.add_child(name_label)
 
 	var slot_label := Label.new()
-	slot_label.text = item.get_slot_name()
+	slot_label.text = "%s %s" % [item.get_rarity_name(), item.get_slot_name()]
 	slot_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	slot_label.modulate = Color(0.78, 0.78, 0.78)
 	box.add_child(slot_label)
@@ -515,10 +536,10 @@ func _on_reward_card_hovered(card: PanelContainer, hovered: bool) -> void:
 		return
 
 	if hovered:
-		card.add_theme_stylebox_override("panel", _create_reward_card_style(REWARD_CARD_HOVER_COLOR, REWARD_CARD_HOVER_BORDER_COLOR, 2))
+		card.add_theme_stylebox_override("panel", _create_reward_card_style(REWARD_CARD_HOVER_COLOR, _get_reward_card_border_color(card), 2))
 		_tween_reward_card_scale(card, Vector2(1.035, 1.035))
 	else:
-		card.add_theme_stylebox_override("panel", _create_reward_card_style(REWARD_CARD_NORMAL_COLOR, REWARD_CARD_BORDER_COLOR, 1))
+		card.add_theme_stylebox_override("panel", _create_reward_card_style(REWARD_CARD_NORMAL_COLOR, _get_reward_card_border_color(card), 1))
 		_tween_reward_card_scale(card, Vector2.ONE)
 
 func _on_reward_card_gui_input(event: InputEvent, card: PanelContainer, reward_index: int) -> void:
@@ -536,6 +557,9 @@ func _create_reward_card_style(background_color: Color, border_color: Color, bor
 	style.set_border_width_all(border_width)
 	style.set_corner_radius_all(8)
 	return style
+
+func _get_reward_card_border_color(card: PanelContainer) -> Color:
+	return card.get_meta("rarity_border_color", REWARD_CARD_BORDER_COLOR) as Color
 
 func play_player_attack() -> void:
 	await _play_battler_action(player_battler_sprite, "attack")

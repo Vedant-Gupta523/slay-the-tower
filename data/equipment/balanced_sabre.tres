@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="EquipmentData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/equipment/equipment_data.gd" id="1_balanced_sabre"]
+
+[resource]
+script = ExtResource("1_balanced_sabre")
+item_name = "Balanced Sabre"
+description = "A clean blade with enough reach to keep pressure on."
+slot_type = 0
+rarity = 1
+atk_bonus = 2
+spd_bonus = 1

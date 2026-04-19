@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="EquipmentData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/equipment/equipment_data.gd" id="1_knight_breaker"]
+
+[resource]
+script = ExtResource("1_knight_breaker")
+item_name = "Knight Breaker"
+description = "A heavy weapon that turns committed attacks into real damage."
+slot_type = 0
+rarity = 2
+atk_bonus = 4

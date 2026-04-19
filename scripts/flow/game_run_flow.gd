@@ -11,12 +11,24 @@ class_name GameRunFlow
 
 @onready var map_run_state: MapRunState = $MapRunState
 @onready var current_scene_root: Node = $CurrentSceneRoot
+@onready var inventory_button: Button = %InventoryButton
+@onready var skills_button: Button = %SkillsButton
+@onready var equipment_screen: EquipmentScreen = %EquipmentScreen
+@onready var skill_loadout_screen: SkillLoadoutScreen = %SkillLoadoutScreen
 
 var _world_map_controller: WorldMapController
 var _battle_controller: BattleController
+var _player_unit: PlayerUnit
 
 
 func _ready() -> void:
+	_ensure_player_unit()
+	inventory_button.pressed.connect(_on_inventory_button_pressed)
+	skills_button.pressed.connect(_on_skills_button_pressed)
+	equipment_screen.equip_reserve_requested.connect(_on_equipment_screen_equip_reserve_requested)
+	equipment_screen.unequip_slot_requested.connect(_on_equipment_screen_unequip_slot_requested)
+	skill_loadout_screen.equip_reserve_requested.connect(_on_skill_screen_equip_reserve_requested)
+	skill_loadout_screen.unequip_slot_requested.connect(_on_skill_screen_unequip_slot_requested)
 	_open_world_map(true)
 
 
@@ -27,6 +39,8 @@ func _open_world_map(create_run_if_missing: bool = false) -> void:
 	_switch_to_instance(world_map)
 	_world_map_controller = world_map
 	_battle_controller = null
+	_set_inventory_button_visible(true)
+	_set_skills_button_visible(true)
 	world_map.node_selected.connect(_on_world_map_node_selected)
 
 	if create_run_if_missing and not map_run_state.has_active_run():
@@ -45,7 +59,11 @@ func _open_battle_for_node(node_data: MapNodeData) -> void:
 			_world_map_controller.refresh()
 		return
 
-	if player_unit_data != null:
+	_ensure_player_unit()
+	if _player_unit != null:
+		_player_unit.reset_for_battle()
+		battle_controller.set_player_unit(_player_unit)
+	elif player_unit_data != null:
 		battle_controller.player_data = player_unit_data
 
 	var enemy_data: UnitData = _get_enemy_data_for_node(node_data)
@@ -56,6 +74,8 @@ func _open_battle_for_node(node_data: MapNodeData) -> void:
 
 	_world_map_controller = null
 	_battle_controller = battle_controller
+	_set_inventory_button_visible(false)
+	_set_skills_button_visible(false)
 
 	_battle_controller.battle_won.connect(_on_battle_won)
 	_battle_controller.battle_lost.connect(_on_battle_lost)
@@ -67,6 +87,73 @@ func _switch_to_instance(instance: Node) -> void:
 		child.queue_free()
 
 	current_scene_root.add_child(instance)
+
+
+func _ensure_player_unit() -> void:
+	if _player_unit != null or player_unit_data == null:
+		return
+
+	_player_unit = PlayerUnit.new(player_unit_data)
+
+
+func _set_inventory_button_visible(is_visible: bool) -> void:
+	if inventory_button != null:
+		inventory_button.visible = is_visible
+
+
+func _set_skills_button_visible(is_visible: bool) -> void:
+	if skills_button != null:
+		skills_button.visible = is_visible
+
+
+func _on_inventory_button_pressed() -> void:
+	_ensure_player_unit()
+	if _player_unit == null:
+		return
+
+	skill_loadout_screen.hide()
+	equipment_screen.show_for_player(_player_unit)
+
+
+func _on_skills_button_pressed() -> void:
+	_ensure_player_unit()
+	if _player_unit == null:
+		return
+
+	equipment_screen.hide()
+	skill_loadout_screen.show_for_loadout(_player_unit.get_skill_loadout())
+
+
+func _on_equipment_screen_equip_reserve_requested(reserve_index: int, slot_type: int) -> void:
+	if _player_unit == null:
+		return
+
+	_player_unit.equip_reserve_item_to_slot(reserve_index, slot_type)
+	equipment_screen.show_for_player(_player_unit)
+
+
+func _on_equipment_screen_unequip_slot_requested(slot_type: int) -> void:
+	if _player_unit == null:
+		return
+
+	_player_unit.unequip_slot(slot_type)
+	equipment_screen.show_for_player(_player_unit)
+
+
+func _on_skill_screen_equip_reserve_requested(reserve_index: int, slot_index: int) -> void:
+	if _player_unit == null:
+		return
+
+	_player_unit.equip_reserve_skill_to_slot(reserve_index, slot_index)
+	skill_loadout_screen.show_for_loadout(_player_unit.get_skill_loadout())
+
+
+func _on_skill_screen_unequip_slot_requested(slot_index: int) -> void:
+	if _player_unit == null:
+		return
+
+	_player_unit.unequip_skill_slot(slot_index)
+	skill_loadout_screen.show_for_loadout(_player_unit.get_skill_loadout())
 
 
 func _on_world_map_node_selected(node_data: MapNodeData) -> void:

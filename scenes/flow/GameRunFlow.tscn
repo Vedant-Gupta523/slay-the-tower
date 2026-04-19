@@ -1,12 +1,66 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/flow/game_run_flow.gd" id="1_uxg52"]
 [ext_resource type="Script" path="res://scripts/map/map_run_state.gd" id="2_5eocu"]
+[ext_resource type="Script" path="res://scripts/equipment/equipment_screen.gd" id="3_xd1va"]
+[ext_resource type="Resource" path="res://data/units/player_base.tres" id="4_p4gqj"]
+[ext_resource type="Resource" path="res://data/units/slime_base.tres" id="5_5jrnl"]
+[ext_resource type="Script" path="res://scripts/skills/skill_loadout_screen.gd" id="6_y477y"]
 
 [node name="GameRunFlow" type="Node"]
 script = ExtResource("1_uxg52")
+player_unit_data = ExtResource("4_p4gqj")
+combat_enemy_data = ExtResource("5_5jrnl")
 
 [node name="MapRunState" type="Node" parent="."]
 script = ExtResource("2_5eocu")
 
 [node name="CurrentSceneRoot" type="Node" parent="."]
+
+[node name="RunUiLayer" type="CanvasLayer" parent="."]
+
+[node name="InventoryButton" type="Button" parent="RunUiLayer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(132, 38)
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -156.0
+offset_top = 18.0
+offset_right = -24.0
+offset_bottom = 56.0
+grow_horizontal = 0
+text = "Equipment"
+
+[node name="SkillsButton" type="Button" parent="RunUiLayer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(132, 38)
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -156.0
+offset_top = 64.0
+offset_right = -24.0
+offset_bottom = 102.0
+grow_horizontal = 0
+text = "Skills"
+
+[node name="EquipmentScreen" type="Control" parent="RunUiLayer"]
+unique_name_in_owner = true
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("3_xd1va")
+
+[node name="SkillLoadoutScreen" type="Control" parent="RunUiLayer"]
+unique_name_in_owner = true
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("6_y477y")

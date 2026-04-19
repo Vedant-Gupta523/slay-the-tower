@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="EquipmentData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/equipment/equipment_data.gd" id="1_wind_token"]
+
+[resource]
+script = ExtResource("1_wind_token")
+item_name = "Wind Token"
+description = "A quicksilver charm that rewards acting before the enemy."
+slot_type = 2
+rarity = 2
+atk_bonus = 1
+spd_bonus = 4

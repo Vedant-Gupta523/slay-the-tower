@@ -26,6 +26,8 @@ var battle_state: BattleState = BattleState.START
 var view: BattleView
 var _result_emitted: bool = false
 var reward_options: Array[EquipmentData] = []
+var player_unit_override: PlayerUnit
+var reward_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 func _ready() -> void:
 	view = get_parent() as BattleView
@@ -44,12 +46,16 @@ func _ready() -> void:
 	view.equipment_manage_requested.connect(_on_equipment_manage_requested)
 	view.reserve_equipment_equip_requested.connect(_on_reserve_equipment_equip_requested)
 	view.equipment_slot_unequip_requested.connect(_on_equipment_slot_unequip_requested)
+	reward_rng.randomize()
 	set_process_unhandled_input(true)
 
 	start_battle()
 
 func start_battle() -> void:
-	player = PlayerUnit.new(player_data)
+	if player_unit_override != null:
+		player = player_unit_override
+	else:
+		player = PlayerUnit.new(player_data)
 	enemy = EnemyUnit.new(enemy_data)
 	view.hide_equipment_rewards()
 	view.hide_equipment_panel()
@@ -235,6 +241,9 @@ func update_ui() -> void:
 	)
 	view.update_status(player.is_defending, enemy.is_defending)
 
+func set_player_unit(player_unit: PlayerUnit) -> void:
+	player_unit_override = player_unit
+
 func _get_target_side(target: BattleUnit) -> String:
 	if target == player:
 		return BattleView.TARGET_PLAYER
@@ -254,16 +263,36 @@ func _offer_equipment_rewards() -> void:
 func _get_equipment_reward_options() -> Array[EquipmentData]:
 	var pool := _load_equipment_reward_pool()
 	var options: Array[EquipmentData] = []
+	var used: Array[EquipmentData] = []
 
-	pool.shuffle()
+	for i in range(REWARD_OPTION_COUNT):
+		var rolled_rarity: int = EquipmentData.roll_rarity(reward_rng)
+		var item: EquipmentData = _pick_equipment_reward(pool, rolled_rarity, used)
 
-	for item in pool:
-		options.append(item)
-
-		if options.size() >= REWARD_OPTION_COUNT:
+		if item == null:
 			break
 
+		options.append(item)
+		used.append(item)
+
 	return options
+
+func _pick_equipment_reward(pool: Array[EquipmentData], rarity: int, used: Array[EquipmentData]) -> EquipmentData:
+	var candidates: Array[EquipmentData] = []
+
+	for item_in_pool: EquipmentData in pool:
+		if item_in_pool.rarity == rarity and not used.has(item_in_pool):
+			candidates.append(item_in_pool)
+
+	if candidates.is_empty():
+		for fallback_item: EquipmentData in pool:
+			if not used.has(fallback_item):
+				candidates.append(fallback_item)
+
+	if candidates.is_empty():
+		return null
+
+	return candidates[reward_rng.randi_range(0, candidates.size() - 1)]
 
 func _load_equipment_reward_pool() -> Array[EquipmentData]:
 	var pool: Array[EquipmentData] = []
@@ -314,7 +343,7 @@ func _on_reward_skipped() -> void:
 	_emit_battle_result(&"battle_won")
 
 func _on_equipment_manage_requested() -> void:
-	if player == null:
+	if player == null or battle_state != BattleState.VICTORY:
 		return
 
 	view.show_equipment_panel(player.get_equipped_items(), player.get_reserve_inventory())

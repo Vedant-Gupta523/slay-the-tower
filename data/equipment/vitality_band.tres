@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="EquipmentData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/equipment/equipment_data.gd" id="1_vitality_band"]
+
+[resource]
+script = ExtResource("1_vitality_band")
+item_name = "Vitality Band"
+description = "A warm band that steadies the body during long fights."
+slot_type = 2
+rarity = 1
+max_hp_bonus = 7

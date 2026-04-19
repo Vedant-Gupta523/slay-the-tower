@@ -7,5 +7,6 @@ script = ExtResource("1_iron_ring")
 item_name = "Iron Ring"
 description = "A sturdy ring that adds a little staying power."
 slot_type = 2
+rarity = 0
 max_hp_bonus = 4
 def_bonus = 1

@@ -5,19 +5,26 @@ var data: UnitData
 var current_hp: int
 var is_defending: bool = false
 var skills: Array[SkillInstance] = []
+var skill_loadout: SkillLoadout
 var equipment: Dictionary = {}
 var reserve_inventory: Array[EquipmentData] = []
 
 func _init(unit_data: UnitData) -> void:
 	data = unit_data
 	current_hp = data.max_hp
+	skill_loadout = SkillLoadout.new(data.skills)
 	_initialize_skills()
 
 func _initialize_skills() -> void:
 	skills.clear()
 
-	for skill_data in data.skills:
+	for skill_data: SkillData in skill_loadout.get_active_skills():
 		skills.append(skill_data.create_instance())
+
+func reset_for_battle() -> void:
+	current_hp = get_max_hp()
+	is_defending = false
+	_initialize_skills()
 
 func get_unit_name() -> String:
 	return data.unit_name
@@ -39,6 +46,25 @@ func get_spd() -> int:
 
 func get_skills() -> Array[SkillInstance]:
 	return skills
+
+func get_skill_loadout() -> SkillLoadout:
+	return skill_loadout
+
+func equip_reserve_skill_to_slot(reserve_index: int, slot_index: int) -> bool:
+	var equipped: bool = skill_loadout.equip_reserve_skill_to_slot(reserve_index, slot_index)
+
+	if equipped:
+		_initialize_skills()
+
+	return equipped
+
+func unequip_skill_slot(slot_index: int) -> SkillData:
+	var skill: SkillData = skill_loadout.unequip_slot(slot_index)
+
+	if skill != null:
+		_initialize_skills()
+
+	return skill
 
 func is_dead() -> bool:
 	return current_hp <= 0
@@ -70,7 +96,6 @@ func equip_item(item: EquipmentData) -> void:
 	if item == null:
 		return
 
-	var old_max_hp := get_max_hp()
 	var old_item := get_equipped_item(item.slot_type)
 	_remove_from_reserve(item)
 
@@ -79,7 +104,7 @@ func equip_item(item: EquipmentData) -> void:
 
 	equipment[item.slot_type] = item
 	var new_max_hp := get_max_hp()
-	current_hp = clamp(current_hp + max(0, new_max_hp - old_max_hp), 0, new_max_hp)
+	current_hp = clamp(current_hp, 0, new_max_hp)
 
 func add_to_reserve(item: EquipmentData) -> void:
 	if item == null or reserve_inventory.has(item):
@@ -91,7 +116,18 @@ func equip_reserve_item(reserve_index: int) -> EquipmentData:
 	if reserve_index < 0 or reserve_index >= reserve_inventory.size():
 		return null
 
-	var item := reserve_inventory[reserve_index]
+	var item: EquipmentData = reserve_inventory[reserve_index]
+	equip_item(item)
+	return item
+
+func equip_reserve_item_to_slot(reserve_index: int, slot_type: int) -> EquipmentData:
+	if reserve_index < 0 or reserve_index >= reserve_inventory.size():
+		return null
+
+	var item: EquipmentData = reserve_inventory[reserve_index]
+	if item == null or item.slot_type != slot_type:
+		return null
+
 	equip_item(item)
 	return item
 
@@ -132,6 +168,6 @@ func _get_equipment_stat_bonus(property_name: String) -> int:
 		if item == null:
 			continue
 
-		total += int(item.get(property_name))
+		total += item.get_stat_bonus(property_name)
 
 	return total
