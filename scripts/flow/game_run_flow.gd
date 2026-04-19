@@ -3,11 +3,13 @@ class_name GameRunFlow
 
 @export var world_map_scene: PackedScene = preload("res://scenes/map/WorldMap.tscn")
 @export var battle_scene: PackedScene = preload("res://scenes/battle/battle_scene.tscn")
+@export var main_base_scene: PackedScene = preload("res://scenes/base/MainBase.tscn")
 @export var initial_seed: int = 0
 @export var player_unit_data: UnitData
 @export var combat_enemy_data: UnitData
 @export var elite_enemy_data: UnitData
 @export var boss_enemy_data: UnitData
+@export var player_profile: PlayerProfileData
 
 @onready var map_run_state: MapRunState = $MapRunState
 @onready var current_scene_root: Node = $CurrentSceneRoot
@@ -18,10 +20,13 @@ class_name GameRunFlow
 
 var _world_map_controller: WorldMapController
 var _battle_controller: BattleController
+var _main_base_controller: MainBaseController
 var _player_unit: PlayerUnit
+var _active_battle_node_type: StringName = &""
 
 
 func _ready() -> void:
+	_ensure_player_profile()
 	_ensure_player_unit()
 	inventory_button.pressed.connect(_on_inventory_button_pressed)
 	skills_button.pressed.connect(_on_skills_button_pressed)
@@ -29,7 +34,22 @@ func _ready() -> void:
 	equipment_screen.unequip_slot_requested.connect(_on_equipment_screen_unequip_slot_requested)
 	skill_loadout_screen.equip_reserve_requested.connect(_on_skill_screen_equip_reserve_requested)
 	skill_loadout_screen.unequip_slot_requested.connect(_on_skill_screen_unequip_slot_requested)
-	_open_world_map(true)
+	_open_main_base()
+
+
+func _open_main_base() -> void:
+	var main_base := main_base_scene.instantiate() as MainBaseController
+	main_base.set_player_profile(get_player_profile())
+	_switch_to_instance(main_base)
+	_main_base_controller = main_base
+	_world_map_controller = null
+	_battle_controller = null
+	_active_battle_node_type = &""
+	_set_inventory_button_visible(false)
+	_set_skills_button_visible(false)
+	equipment_screen.hide()
+	skill_loadout_screen.hide()
+	main_base.start_dungeon_requested.connect(_on_main_base_start_dungeon_requested)
 
 
 func _open_world_map(create_run_if_missing: bool = false) -> void:
@@ -37,8 +57,10 @@ func _open_world_map(create_run_if_missing: bool = false) -> void:
 	world_map.auto_generate_if_missing = false
 	world_map.set_run_state(map_run_state)
 	_switch_to_instance(world_map)
+	_main_base_controller = null
 	_world_map_controller = world_map
 	_battle_controller = null
+	_active_battle_node_type = &""
 	_set_inventory_button_visible(true)
 	_set_skills_button_visible(true)
 	world_map.node_selected.connect(_on_world_map_node_selected)
@@ -74,6 +96,8 @@ func _open_battle_for_node(node_data: MapNodeData) -> void:
 
 	_world_map_controller = null
 	_battle_controller = battle_controller
+	_main_base_controller = null
+	_active_battle_node_type = node_data.node_type
 	_set_inventory_button_visible(false)
 	_set_skills_button_visible(false)
 
@@ -89,11 +113,37 @@ func _switch_to_instance(instance: Node) -> void:
 	current_scene_root.add_child(instance)
 
 
+func _on_main_base_start_dungeon_requested() -> void:
+	map_run_state.clear_run()
+	_open_world_map(true)
+
+
 func _ensure_player_unit() -> void:
 	if _player_unit != null or player_unit_data == null:
 		return
 
 	_player_unit = PlayerUnit.new(player_unit_data)
+	if player_profile != null:
+		player_profile.apply_to_player_unit(_player_unit)
+
+
+func _ensure_player_profile() -> void:
+	if player_profile == null:
+		player_profile = PlayerProfileData.new()
+
+	player_profile.initialize_from_unit_data(player_unit_data)
+
+
+func get_player_profile() -> PlayerProfileData:
+	_ensure_player_profile()
+	return player_profile
+
+
+func _sync_profile_from_player() -> void:
+	if player_profile == null or _player_unit == null:
+		return
+
+	player_profile.capture_from_player_unit(_player_unit)
 
 
 func _set_inventory_button_visible(is_visible: bool) -> void:
@@ -129,6 +179,7 @@ func _on_equipment_screen_equip_reserve_requested(reserve_index: int, slot_type:
 		return
 
 	_player_unit.equip_reserve_item_to_slot(reserve_index, slot_type)
+	_sync_profile_from_player()
 	equipment_screen.show_for_player(_player_unit)
 
 
@@ -137,6 +188,7 @@ func _on_equipment_screen_unequip_slot_requested(slot_type: int) -> void:
 		return
 
 	_player_unit.unequip_slot(slot_type)
+	_sync_profile_from_player()
 	equipment_screen.show_for_player(_player_unit)
 
 
@@ -145,6 +197,7 @@ func _on_skill_screen_equip_reserve_requested(reserve_index: int, slot_index: in
 		return
 
 	_player_unit.equip_reserve_skill_to_slot(reserve_index, slot_index)
+	_sync_profile_from_player()
 	skill_loadout_screen.show_for_loadout(_player_unit.get_skill_loadout())
 
 
@@ -153,6 +206,7 @@ func _on_skill_screen_unequip_slot_requested(slot_index: int) -> void:
 		return
 
 	_player_unit.unequip_skill_slot(slot_index)
+	_sync_profile_from_player()
 	skill_loadout_screen.show_for_loadout(_player_unit.get_skill_loadout())
 
 
@@ -170,18 +224,32 @@ func _on_world_map_node_selected(node_data: MapNodeData) -> void:
 
 
 func _on_battle_won() -> void:
+	_sync_profile_from_player()
 	map_run_state.commit_pending_node()
+	if _active_battle_node_type == &"boss":
+		if player_profile != null:
+			player_profile.increment_streak()
+		map_run_state.clear_run()
+		_open_main_base()
+		return
+
 	_open_world_map(false)
 
 
 func _on_battle_lost() -> void:
+	_sync_profile_from_player()
+	if player_profile != null:
+		player_profile.reset_streak()
 	map_run_state.clear_pending_node()
-	_open_world_map(false)
+	map_run_state.clear_run()
+	_open_main_base()
 
 
 func _on_battle_exited() -> void:
+	_sync_profile_from_player()
 	map_run_state.clear_pending_node()
-	_open_world_map(false)
+	map_run_state.clear_run()
+	_open_main_base()
 
 
 func _get_enemy_data_for_node(node_data: MapNodeData) -> UnitData:

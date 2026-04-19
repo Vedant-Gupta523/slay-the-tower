@@ -47,6 +47,9 @@ func get_spd() -> int:
 func get_skills() -> Array[SkillInstance]:
 	return skills
 
+func rebuild_skill_instances() -> void:
+	_initialize_skills()
+
 func get_skill_loadout() -> SkillLoadout:
 	return skill_loadout
 
