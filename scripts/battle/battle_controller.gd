@@ -84,7 +84,7 @@ func run_enemy_turn() -> void:
 			await view.play_enemy_attack()
 
 		var result: SkillResult = chosen_skill.use(enemy, target)
-		view.present_skill_used(
+		await view.present_skill_used(
 			enemy.get_unit_name(),
 			chosen_skill.get_skill_name(),
 			_get_target_side(target),
@@ -94,7 +94,7 @@ func run_enemy_turn() -> void:
 	else:
 		await view.play_enemy_attack()
 		var damage: int = enemy.basic_attack(player)
-		view.present_basic_attack(
+		await view.present_basic_attack(
 			enemy.get_unit_name(),
 			player.get_unit_name(),
 			BattleView.TARGET_PLAYER,
@@ -117,7 +117,7 @@ func _on_attack_button_pressed() -> void:
 
 	await view.play_player_attack()
 	var damage: int = player.basic_attack(enemy)
-	view.present_basic_attack(
+	await view.present_basic_attack(
 		player.get_unit_name(),
 		enemy.get_unit_name(),
 		BattleView.TARGET_ENEMY,
@@ -174,7 +174,7 @@ func _on_skill_button_pressed(skill_index: int) -> void:
 		await view.play_player_attack()
 
 	var result: SkillResult = skill.use(player, target)
-	view.present_skill_used(
+	await view.present_skill_used(
 		player.get_unit_name(),
 		skill.get_skill_name(),
 		_get_target_side(target),
