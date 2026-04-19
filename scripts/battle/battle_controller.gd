@@ -346,13 +346,13 @@ func _on_equipment_manage_requested() -> void:
 	if player == null or battle_state != BattleState.VICTORY:
 		return
 
-	view.show_equipment_panel(player.get_equipped_items(), player.get_reserve_inventory())
+	view.show_equipment_panel(player)
 
-func _on_reserve_equipment_equip_requested(reserve_index: int) -> void:
+func _on_reserve_equipment_equip_requested(reserve_index: int, slot_type: int) -> void:
 	if player == null:
 		return
 
-	var item := player.equip_reserve_item(reserve_index)
+	var item := player.equip_reserve_item_to_slot(reserve_index, slot_type)
 
 	if item == null:
 		return
@@ -375,7 +375,7 @@ func _on_equipment_slot_unequip_requested(slot_type: int) -> void:
 	_refresh_equipment_panel()
 
 func _refresh_equipment_panel() -> void:
-	view.show_equipment_panel(player.get_equipped_items(), player.get_reserve_inventory())
+	view.show_equipment_panel(player)
 
 
 func _unhandled_input(event: InputEvent) -> void:

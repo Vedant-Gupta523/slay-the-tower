@@ -7,7 +7,7 @@ signal skill_pressed(skill_index: int)
 signal reward_selected(reward_index: int)
 signal reward_skipped
 signal equipment_manage_requested
-signal reserve_equipment_equip_requested(reserve_index: int)
+signal reserve_equipment_equip_requested(reserve_index: int, slot_type: int)
 signal equipment_slot_unequip_requested(slot_type: int)
 
 const MAX_LOG_LINES := 6
@@ -95,11 +95,13 @@ var selected_equipment_item: EquipmentData
 var equipment_panel_equipped: Dictionary = {}
 var selected_equipment_button: Button
 var restore_reward_after_equipment := false
+var managed_equipment_screen: EquipmentScreen
 
 func _ready() -> void:
 	_setup_fx_layer()
 	_setup_reward_panel_style()
 	_setup_equipment_panel_styles()
+	_setup_managed_equipment_screen()
 	_setup_battlers()
 	battler_stage.resized.connect(_position_battlers)
 	call_deferred("_position_battlers")
@@ -134,7 +136,7 @@ func _on_equip_selected_button_pressed() -> void:
 	if selected_reserve_index < 0:
 		return
 
-	reserve_equipment_equip_requested.emit(selected_reserve_index)
+	reserve_equipment_equip_requested.emit(selected_reserve_index, selected_equipped_slot)
 
 func _on_unequip_selected_button_pressed() -> void:
 	if selected_equipped_slot < 0:
@@ -188,6 +190,26 @@ func _setup_reward_panel_style() -> void:
 		return
 
 	reward_panel.add_theme_stylebox_override("panel", _create_panel_style(REWARD_PANEL_COLOR, Color(0.62, 0.64, 0.68, 0.95), 1, 8))
+
+func _setup_managed_equipment_screen() -> void:
+	if managed_equipment_screen != null:
+		return
+
+	managed_equipment_screen = EquipmentScreen.new()
+	managed_equipment_screen.name = "ManagedEquipmentScreen"
+	managed_equipment_screen.visible = false
+	managed_equipment_screen.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(managed_equipment_screen)
+	managed_equipment_screen.equip_reserve_requested.connect(func(reserve_index: int, slot_type: int): reserve_equipment_equip_requested.emit(reserve_index, slot_type))
+	managed_equipment_screen.unequip_slot_requested.connect(func(slot_type: int): equipment_slot_unequip_requested.emit(slot_type))
+	managed_equipment_screen.closed.connect(_on_managed_equipment_screen_closed)
+
+func _on_managed_equipment_screen_closed() -> void:
+	if restore_reward_after_equipment and reward_overlay != null:
+		reward_overlay.visible = true
+		reward_overlay.move_to_front()
+
+	restore_reward_after_equipment = false
 
 func _create_panel_style(background_color: Color, border_color: Color, border_width: int, radius: int) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
@@ -255,28 +277,27 @@ func hide_equipment_rewards() -> void:
 		reward_overlay.visible = false
 	restore_reward_after_equipment = false
 
-func show_equipment_panel(equipped_items: Dictionary, reserve_inventory: Array[EquipmentData]) -> void:
-	if equipment_overlay == null:
+func show_equipment_panel(player: BattleUnit) -> void:
+	if managed_equipment_screen == null or player == null:
 		return
 
-	var was_open := equipment_overlay.visible
+	var was_open := managed_equipment_screen.visible
 	if not was_open:
 		restore_reward_after_equipment = reward_overlay != null and reward_overlay.visible
 
 	if reward_overlay != null:
 		reward_overlay.visible = false
 
-	equipment_panel_equipped = equipped_items
-	selected_reserve_index = -1
-	selected_equipped_slot = -1
-	selected_equipment_item = null
-	selected_equipment_button = null
-	_render_equipped_slots(equipped_items)
-	_render_reserve_inventory(reserve_inventory)
-	_set_equipment_details(null, -1, -1, null)
-	equipment_overlay.visible = true
+	if equipment_overlay != null:
+		equipment_overlay.visible = false
+
+	managed_equipment_screen.show_for_player(player)
+	managed_equipment_screen.move_to_front()
 
 func hide_equipment_panel() -> void:
+	if managed_equipment_screen != null:
+		managed_equipment_screen.hide()
+
 	if equipment_overlay != null:
 		equipment_overlay.visible = false
 
