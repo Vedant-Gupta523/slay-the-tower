@@ -17,3 +17,4 @@ config/features=PackedStringArray("4.5", "Forward Plus")
 [autoload]
 
 ExpeditionState="*res://scripts/progression/expedition_state.gd"
+BlacksmithState="*res://scripts/base/blacksmith_state.gd"

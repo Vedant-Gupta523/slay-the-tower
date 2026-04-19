@@ -6,12 +6,14 @@ signal expedition_state_changed
 const RESOURCE_MONSTER_MATERIALS := &"monster_materials"
 const RESOURCE_ORES := &"ores"
 const RESOURCE_HERBS := &"herbs"
+const TEST_STARTING_GOLD := 2000
+const TEST_STARTING_ORES := 250
 
 var dungeon_index: int = 0
 var max_dungeons: int = 10
-var gold: int = 0
+var gold: int = TEST_STARTING_GOLD
 var monster_materials: int = 0
-var ores: int = 0
+var ores: int = TEST_STARTING_ORES
 var herbs: int = 0
 var inventory: Array[EquipmentData] = []
 var skill_books: Array[SkillData] = []
@@ -20,6 +22,7 @@ var equipped_skills: Array[SkillData] = []
 var is_active: bool = false
 var is_failed: bool = false
 var is_complete: bool = false
+var blacksmith_refresh_counter: int = 0
 
 
 func start_or_continue(unit_data: UnitData = null) -> void:
@@ -36,9 +39,9 @@ func start_or_continue(unit_data: UnitData = null) -> void:
 
 func reset() -> void:
 	dungeon_index = 0
-	gold = 0
+	gold = TEST_STARTING_GOLD
 	monster_materials = 0
-	ores = 0
+	ores = TEST_STARTING_ORES
 	herbs = 0
 	inventory.clear()
 	skill_books.clear()
@@ -47,6 +50,7 @@ func reset() -> void:
 	is_active = false
 	is_failed = false
 	is_complete = false
+	blacksmith_refresh_counter = 0
 	emit_signal("expedition_state_changed")
 	emit_signal("resources_changed")
 
@@ -139,6 +143,67 @@ func get_resource_amount(type: StringName) -> int:
 			return 0
 
 
+func add_equipment_item(item: EquipmentData) -> void:
+	if item == null:
+		return
+
+	inventory.append(EquipmentInstance.from_equipment_data(item))
+	emit_signal("expedition_state_changed")
+
+
+func remove_equipment_item(item: EquipmentData) -> bool:
+	if item == null:
+		return false
+
+	var reserve_index := inventory.find(item)
+	if reserve_index >= 0:
+		inventory.remove_at(reserve_index)
+		emit_signal("expedition_state_changed")
+		return true
+
+	for slot_type in equipped_gear.keys():
+		if equipped_gear[slot_type] == item:
+			equipped_gear.erase(slot_type)
+			emit_signal("expedition_state_changed")
+			return true
+
+	return false
+
+
+func equip_inventory_item(inventory_index: int, slot_type: int) -> bool:
+	if inventory_index < 0 or inventory_index >= inventory.size():
+		return false
+
+	var item: EquipmentData = inventory[inventory_index]
+	if item == null or item.slot_type != slot_type:
+		return false
+
+	inventory.remove_at(inventory_index)
+	var old_item: EquipmentData = equipped_gear.get(slot_type, null) as EquipmentData
+	if old_item != null:
+		inventory.append(old_item)
+
+	equipped_gear[slot_type] = item
+	emit_signal("expedition_state_changed")
+	return true
+
+
+func unequip_gear_slot(slot_type: int) -> bool:
+	var item: EquipmentData = equipped_gear.get(slot_type, null) as EquipmentData
+	if item == null:
+		return false
+
+	equipped_gear.erase(slot_type)
+	inventory.append(item)
+	emit_signal("expedition_state_changed")
+	return true
+
+
+func increment_blacksmith_refresh_counter() -> void:
+	blacksmith_refresh_counter += 1
+	emit_signal("expedition_state_changed")
+
+
 func initialize_from_unit_data(unit_data: UnitData) -> void:
 	if unit_data == null or not skill_books.is_empty() or not equipped_skills.is_empty():
 		return
@@ -157,8 +222,13 @@ func capture_from_player_unit(player: BattleUnit) -> void:
 		return
 
 	inventory.clear()
-	inventory.assign(player.get_reserve_inventory())
-	equipped_gear = player.get_equipped_items()
+	for item in player.get_reserve_inventory():
+		inventory.append(EquipmentInstance.from_equipment_data(item))
+
+	equipped_gear.clear()
+	for slot_type in player.get_equipped_items().keys():
+		var item := player.get_equipped_items()[slot_type] as EquipmentData
+		equipped_gear[slot_type] = EquipmentInstance.from_equipment_data(item)
 
 	var loadout: SkillLoadout = player.get_skill_loadout()
 	skill_books.clear()
@@ -174,8 +244,13 @@ func apply_to_player_unit(player: BattleUnit) -> void:
 		return
 
 	player.reserve_inventory.clear()
-	player.reserve_inventory.assign(inventory)
-	player.equipment = equipped_gear.duplicate()
+	for item in inventory:
+		player.reserve_inventory.append(EquipmentInstance.from_equipment_data(item))
+
+	player.equipment.clear()
+	for slot_type in equipped_gear.keys():
+		var item := equipped_gear[slot_type] as EquipmentData
+		player.equipment[slot_type] = EquipmentInstance.from_equipment_data(item)
 
 	var loadout: SkillLoadout = player.get_skill_loadout()
 	loadout.owned_skills.clear()

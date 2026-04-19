@@ -21,23 +21,24 @@ grow_vertical = 2
 
 [node name="RootMargin" type="MarginContainer" parent="RootPanel"]
 layout_mode = 2
-theme_override_constants/margin_left = 32
-theme_override_constants/margin_top = 28
-theme_override_constants/margin_right = 32
-theme_override_constants/margin_bottom = 28
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 20
 
 [node name="MainBox" type="VBoxContainer" parent="RootPanel/RootMargin"]
 layout_mode = 2
-theme_override_constants/separation = 18
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 14
 
 [node name="TitleLabel" type="Label" parent="RootPanel/RootMargin/MainBox"]
 layout_mode = 2
 text = "Main Base"
-horizontal_alignment = 1
 theme_override_font_sizes/font_size = 26
 
 [node name="SummaryPanel" type="PanelContainer" parent="RootPanel/RootMargin/MainBox"]
-custom_minimum_size = Vector2(0, 92)
+custom_minimum_size = Vector2(0, 64)
 layout_mode = 2
 
 [node name="SummaryMargin" type="MarginContainer" parent="RootPanel/RootMargin/MainBox/SummaryPanel"]
@@ -49,7 +50,7 @@ theme_override_constants/margin_bottom = 12
 
 [node name="SummaryBox" type="HBoxContainer" parent="RootPanel/RootMargin/MainBox/SummaryPanel/SummaryMargin"]
 layout_mode = 2
-theme_override_constants/separation = 16
+theme_override_constants/separation = 10
 
 [node name="GoldLabel" type="Label" parent="RootPanel/RootMargin/MainBox/SummaryPanel/SummaryMargin/SummaryBox"]
 unique_name_in_owner = true
@@ -93,11 +94,12 @@ vertical_alignment = 1
 
 [node name="Content" type="HBoxContainer" parent="RootPanel/RootMargin/MainBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 size_flags_vertical = 3
-theme_override_constants/separation = 18
+theme_override_constants/separation = 14
 
 [node name="ActionsPanel" type="PanelContainer" parent="RootPanel/RootMargin/MainBox/Content"]
-custom_minimum_size = Vector2(320, 0)
+custom_minimum_size = Vector2(220, 0)
 layout_mode = 2
 
 [node name="ActionsMargin" type="MarginContainer" parent="RootPanel/RootMargin/MainBox/Content/ActionsPanel"]
@@ -109,18 +111,25 @@ theme_override_constants/margin_bottom = 16
 
 [node name="ActionsBox" type="VBoxContainer" parent="RootPanel/RootMargin/MainBox/Content/ActionsPanel/ActionsMargin"]
 layout_mode = 2
-theme_override_constants/separation = 10
+size_flags_vertical = 3
+theme_override_constants/separation = 9
 
 [node name="ActionsTitleLabel" type="Label" parent="RootPanel/RootMargin/MainBox/Content/ActionsPanel/ActionsMargin/ActionsBox"]
 layout_mode = 2
-text = "Base Services"
-horizontal_alignment = 1
+text = "Services"
+theme_override_font_sizes/font_size = 17
 
 [node name="StartDungeonButton" type="Button" parent="RootPanel/RootMargin/MainBox/Content/ActionsPanel/ActionsMargin/ActionsBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 text = "Start Dungeon Run"
+
+[node name="EquipmentButton" type="Button" parent="RootPanel/RootMargin/MainBox/Content/ActionsPanel/ActionsMargin/ActionsBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+text = "Equipment"
 
 [node name="BlacksmithButton" type="Button" parent="RootPanel/RootMargin/MainBox/Content/ActionsPanel/ActionsMargin/ActionsBox"]
 unique_name_in_owner = true
@@ -147,18 +156,22 @@ layout_mode = 2
 text = "Quest Board"
 
 [node name="ServicePanel" type="PanelContainer" parent="RootPanel/RootMargin/MainBox/Content"]
+custom_minimum_size = Vector2(480, 0)
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 3
 
 [node name="ServiceMargin" type="MarginContainer" parent="RootPanel/RootMargin/MainBox/Content/ServicePanel"]
 layout_mode = 2
-theme_override_constants/margin_left = 20
-theme_override_constants/margin_top = 18
-theme_override_constants/margin_right = 20
-theme_override_constants/margin_bottom = 18
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 14
 
 [node name="ServiceBox" type="VBoxContainer" parent="RootPanel/RootMargin/MainBox/Content/ServicePanel/ServiceMargin"]
 layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
 theme_override_constants/separation = 12
 
 [node name="ServiceTitleLabel" type="Label" parent="RootPanel/RootMargin/MainBox/Content/ServicePanel/ServiceMargin/ServiceBox"]

@@ -52,6 +52,7 @@ const RARITY_DEFINITIONS := {
 @export_multiline var description: String = ""
 @export var slot_type: SlotType = SlotType.WEAPON
 @export var rarity: Rarity = Rarity.COMMON
+@export var gold_value: int = 25
 
 @export_category("Stat Bonuses")
 @export var max_hp_bonus: int = 0
@@ -61,6 +62,12 @@ const RARITY_DEFINITIONS := {
 
 @export_category("Future Hooks")
 @export var special_effect_key: String = ""
+
+func get_display_name() -> String:
+	return item_name
+
+func get_item_category_name() -> String:
+	return get_slot_name()
 
 func get_slot_name() -> String:
 	match slot_type:
@@ -93,6 +100,12 @@ func get_def_bonus() -> int:
 
 func get_spd_bonus() -> int:
 	return _scale_stat(spd_bonus)
+
+func get_purchase_price() -> int:
+	return max(0, gold_value)
+
+func get_sell_value() -> int:
+	return int(floor(float(get_purchase_price()) * 0.7))
 
 func get_stat_bonus(property_name: String) -> int:
 	match property_name:

@@ -311,6 +311,8 @@ func _return_to_main_base_after_dungeon() -> void:
 	map_run_state.clear_run()
 	_active_node_resolution.clear()
 	_pending_battle_reward_entries.clear()
+	ExpeditionState.increment_blacksmith_refresh_counter()
+	BlacksmithState.rotate_inventory(ExpeditionState.blacksmith_refresh_counter)
 	_open_main_base()
 
 

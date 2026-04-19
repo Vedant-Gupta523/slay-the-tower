@@ -319,7 +319,7 @@ func _render_equipped_slots(equipped_items: Dictionary) -> void:
 
 func _add_equipped_slot_button(slot_type: int, slot_name: String, equipped_items: Dictionary) -> void:
 	var item: EquipmentData = equipped_items.get(slot_type, null) as EquipmentData
-	var item_name := item.item_name if item != null else "Empty"
+	var item_name := item.get_display_name() if item != null else "Empty"
 	var button := _create_equipment_row_button("%s\n%s" % [slot_name, item_name], item)
 	button.pressed.connect(_set_equipment_details.bind(item, slot_type, -1, button))
 	equipped_slots.add_child(button)
@@ -345,7 +345,7 @@ func _render_reserve_inventory(reserve_inventory: Array[EquipmentData]) -> void:
 
 	for i in range(reserve_inventory.size()):
 		var item := reserve_inventory[i]
-		var button := _create_equipment_row_button("%s\n%s" % [item.item_name, item.get_slot_name()], item)
+		var button := _create_equipment_row_button("%s\n%s" % [item.get_display_name(), item.get_slot_name()], item)
 		button.pressed.connect(_set_equipment_details.bind(item, -1, i, button))
 		reserve_items.add_child(button)
 
@@ -367,7 +367,7 @@ func _set_equipment_details(item: EquipmentData, equipped_slot: int, reserve_ind
 		return
 
 	var lines: Array[String] = [
-		"[font_size=20][color=%s][b]%s[/b][/color][/font_size]" % [item.get_rarity_color().to_html(false), item.item_name],
+		"[font_size=20][color=%s][b]%s[/b][/color][/font_size]" % [item.get_rarity_color().to_html(false), item.get_display_name()],
 		"[color=gray]%s %s[/color]" % [item.get_rarity_name(), item.get_slot_name()],
 		"",
 		item.description,
@@ -381,7 +381,7 @@ func _set_equipment_details(item: EquipmentData, equipped_slot: int, reserve_ind
 		lines.append("")
 		lines.append("Currently equipped: [color=%s]%s[/color]" % [
 			current_item.get_rarity_color().to_html(false),
-			current_item.item_name
+			current_item.get_display_name()
 		])
 		lines.append(_get_equipment_comparison_text(item, current_item))
 
@@ -515,7 +515,7 @@ func _create_reward_card(item: EquipmentData, equipped_items: Dictionary, reward
 	margin.add_child(box)
 
 	var name_label := Label.new()
-	name_label.text = item.item_name
+	name_label.text = item.get_display_name()
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_label.add_theme_color_override("font_color", item.get_rarity_color())
 	name_label.add_theme_font_size_override("font_size", 18)
@@ -541,7 +541,7 @@ func _create_reward_card(item: EquipmentData, equipped_items: Dictionary, reward
 
 	var compare_label := Label.new()
 	if current_item != null:
-		compare_label.text = "Replaces: %s" % current_item.item_name
+		compare_label.text = "Replaces: %s" % current_item.get_display_name()
 	else:
 		compare_label.text = "Empty slot"
 	compare_label.modulate = Color(0.72, 0.72, 0.72)

@@ -99,13 +99,14 @@ func equip_item(item: EquipmentData) -> void:
 	if item == null:
 		return
 
-	var old_item := get_equipped_item(item.slot_type)
-	_remove_from_reserve(item)
+	var owned_item := _ensure_owned_item(item)
+	var old_item := get_equipped_item(owned_item.slot_type)
+	_remove_from_reserve(owned_item)
 
-	if old_item != null and old_item != item:
+	if old_item != null and old_item != owned_item:
 		add_to_reserve(old_item)
 
-	equipment[item.slot_type] = item
+	equipment[owned_item.slot_type] = owned_item
 	var new_max_hp := get_max_hp()
 	current_hp = clamp(current_hp, 0, new_max_hp)
 
@@ -113,7 +114,7 @@ func add_to_reserve(item: EquipmentData) -> void:
 	if item == null or reserve_inventory.has(item):
 		return
 
-	reserve_inventory.append(item)
+	reserve_inventory.append(_ensure_owned_item(item))
 
 func equip_reserve_item(reserve_index: int) -> EquipmentData:
 	if reserve_index < 0 or reserve_index >= reserve_inventory.size():
@@ -163,6 +164,10 @@ func _remove_from_reserve(item: EquipmentData) -> void:
 
 	if index >= 0:
 		reserve_inventory.remove_at(index)
+
+
+func _ensure_owned_item(item: EquipmentData) -> EquipmentData:
+	return EquipmentInstance.from_equipment_data(item)
 
 func _get_equipment_stat_bonus(property_name: String) -> int:
 	var total := 0

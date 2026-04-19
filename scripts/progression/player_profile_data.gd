@@ -5,9 +5,9 @@ const RESOURCE_MONSTER_MATERIALS := &"monster_materials"
 const RESOURCE_ORES := &"ores"
 const RESOURCE_HERBS := &"herbs"
 
-@export var gold: int = 0
+@export var gold: int = 2000
 @export var monster_materials: int = 0
-@export var ores: int = 0
+@export var ores: int = 250
 @export var herbs: int = 0
 @export var owned_gear_inventory: Array[EquipmentData] = []
 @export var owned_skill_books: Array[SkillData] = []
@@ -105,8 +105,13 @@ func capture_from_player_unit(player: BattleUnit) -> void:
 		return
 
 	owned_gear_inventory.clear()
-	owned_gear_inventory.assign(player.get_reserve_inventory())
-	equipped_gear = player.get_equipped_items()
+	for item in player.get_reserve_inventory():
+		owned_gear_inventory.append(EquipmentInstance.from_equipment_data(item))
+
+	equipped_gear.clear()
+	for slot_type in player.get_equipped_items().keys():
+		var item := player.get_equipped_items()[slot_type] as EquipmentData
+		equipped_gear[slot_type] = EquipmentInstance.from_equipment_data(item)
 
 	var loadout: SkillLoadout = player.get_skill_loadout()
 	owned_skill_books.clear()
@@ -120,8 +125,13 @@ func apply_to_player_unit(player: BattleUnit) -> void:
 		return
 
 	player.reserve_inventory.clear()
-	player.reserve_inventory.assign(owned_gear_inventory)
-	player.equipment = equipped_gear.duplicate()
+	for item in owned_gear_inventory:
+		player.reserve_inventory.append(EquipmentInstance.from_equipment_data(item))
+
+	player.equipment.clear()
+	for slot_type in equipped_gear.keys():
+		var item := equipped_gear[slot_type] as EquipmentData
+		player.equipment[slot_type] = EquipmentInstance.from_equipment_data(item)
 
 	var loadout: SkillLoadout = player.get_skill_loadout()
 	loadout.owned_skills.clear()

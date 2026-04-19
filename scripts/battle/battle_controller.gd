@@ -328,11 +328,11 @@ func _on_reward_selected(reward_index: int) -> void:
 	var item := reward_options[reward_index]
 	if player.get_equipped_item(item.slot_type) == null:
 		player.equip_item(item)
-		view.set_log_text("Equipped %s." % item.item_name)
+		view.set_log_text("Equipped %s." % item.get_display_name())
 		emit_signal("rewards_granted", [_build_gear_reward_entry(item, true)])
 	else:
 		player.add_to_reserve(item)
-		view.set_log_text("Stored %s in reserve." % item.item_name)
+		view.set_log_text("Stored %s in reserve." % item.get_display_name())
 		emit_signal("rewards_granted", [_build_gear_reward_entry(item, false)])
 
 	update_ui()
@@ -360,7 +360,7 @@ func _on_reserve_equipment_equip_requested(reserve_index: int, slot_type: int) -
 	if item == null:
 		return
 
-	view.set_log_text("Equipped %s." % item.item_name)
+	view.set_log_text("Equipped %s." % item.get_display_name())
 	update_ui()
 	_refresh_equipment_panel()
 
@@ -373,7 +373,7 @@ func _on_equipment_slot_unequip_requested(slot_type: int) -> void:
 	if item == null:
 		return
 
-	view.set_log_text("Moved %s to reserve." % item.item_name)
+	view.set_log_text("Moved %s to reserve." % item.get_display_name())
 	update_ui()
 	_refresh_equipment_panel()
 
@@ -405,8 +405,8 @@ func _emit_battle_result(signal_name: StringName) -> void:
 func _build_gear_reward_entry(item: EquipmentData, equipped_now: bool) -> Dictionary:
 	return {
 		"type": "gear",
-		"name": item.item_name,
+		"name": item.get_display_name(),
 		"quantity": 1,
-		"line": "New Gear: %s" % item.item_name,
+		"line": "New Gear: %s" % item.get_display_name(),
 		"detail": "Equipped now" if equipped_now else "Stored in reserve",
 	}

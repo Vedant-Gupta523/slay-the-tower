@@ -246,7 +246,7 @@ func _render_equipped_slots() -> void:
 
 func _add_equipped_slot(slot_type: int, slot_name: String) -> void:
 	var item := _player.get_equipped_item(slot_type)
-	var row_text := "%s\n%s" % [slot_name, item.item_name if item != null else "Empty"]
+	var row_text := "%s\n%s" % [slot_name, item.get_display_name() if item != null else "Empty"]
 	var button := _create_row_button(row_text, item)
 	button.pressed.connect(_select_equipped.bind(slot_type, button))
 	_equipped_list.add_child(button)
@@ -271,9 +271,9 @@ func _render_reserve_inventory() -> void:
 			continue
 
 		var is_valid_for_slot: bool = _is_item_valid_for_selected_slot(item)
-		var row_text: String = "%s\n%s" % [item.item_name, item.get_slot_name()]
+		var row_text: String = "%s\n%s" % [item.get_display_name(), item.get_slot_name()]
 		if not is_valid_for_slot:
-			row_text = "%s\nNot valid for %s" % [item.item_name, _get_slot_name(_target_slot_type)]
+			row_text = "%s\nNot valid for %s" % [item.get_display_name(), _get_slot_name(_target_slot_type)]
 
 		var button := _create_row_button(row_text, item)
 		if not is_valid_for_slot:
@@ -311,7 +311,7 @@ func _render_details() -> void:
 		return
 
 	var lines: Array[String] = [
-		"[font_size=22][color=%s][b]%s[/b][/color][/font_size]" % [_selected_item.get_rarity_color().to_html(false), _selected_item.item_name],
+		"[font_size=22][color=%s][b]%s[/b][/color][/font_size]" % [_selected_item.get_rarity_color().to_html(false), _selected_item.get_display_name()],
 		"[color=%s]%s %s[/color]" % [MUTED_COLOR, _selected_item.get_rarity_name(), _selected_item.get_slot_name()],
 		"",
 		_selected_item.description,
@@ -500,7 +500,7 @@ func _get_comparison_block(item: EquipmentData) -> String:
 		lines.append("[color=%s]Compared to [/color][color=%s]%s[/color]" % [
 			MUTED_COLOR,
 			current_item.get_rarity_color().to_html(false),
-			current_item.item_name
+			current_item.get_display_name()
 		])
 
 	_append_stat_diff(lines, "Max HP", item.get_max_hp_bonus() - _get_item_bonus(current_item, "max_hp_bonus"))
