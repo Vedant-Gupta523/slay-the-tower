@@ -81,6 +81,7 @@ func sell_inventory_item(inventory_index: int) -> bool:
 
 	ExpeditionState.inventory.remove_at(inventory_index)
 	ExpeditionState.add_gold(item.get_sell_value())
+	current_shop_items.append(item)
 	ExpeditionState.emit_signal("expedition_state_changed")
 	emit_signal("shop_inventory_changed")
 	return true
