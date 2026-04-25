@@ -21,12 +21,16 @@ var _status_label: Label
 var _shop_tab: HBoxContainer
 var _sell_tab: HBoxContainer
 var _enhance_tab: HBoxContainer
-var _shop_list: VBoxContainer
-var _sell_list: VBoxContainer
-var _enhance_list: VBoxContainer
+var _shop_list: GridContainer
+var _sell_list: GridContainer
+var _enhance_list: GridContainer
 var _shop_detail_label: RichTextLabel
 var _sell_detail_label: RichTextLabel
 var _enhance_detail_label: RichTextLabel
+var _enhance_selected_item_label: RichTextLabel
+var _enhance_material_label: RichTextLabel
+var _enhance_filter_all_button: Button
+var _enhance_filter_equipped_button: Button
 var _buy_button: Button
 var _sell_button: Button
 var _enhance_button: Button
@@ -37,6 +41,7 @@ var _selected_sell_index: int = -1
 var _selected_sell_item: EquipmentData
 var _selected_enhance_item: EquipmentData
 var _last_enhance_result: Dictionary = {}
+var _enhance_inventory_filter: StringName = &"all"
 var _active_tab: StringName = &"shop"
 
 
@@ -126,14 +131,15 @@ func _build_ui() -> void:
 	root.add_child(tab_row)
 
 	_tab_shop_button = _create_tab_button("Buy")
+	_tab_shop_button.text = "Trade"
 	_tab_shop_button.pressed.connect(show_shop_tab)
 	tab_row.add_child(_tab_shop_button)
 
 	_tab_sell_button = _create_tab_button("Sell")
+	_tab_sell_button.visible = false
 	_tab_sell_button.pressed.connect(show_sell_tab)
-	tab_row.add_child(_tab_sell_button)
 
-	_tab_enhance_button = _create_tab_button("Enhance")
+	_tab_enhance_button = _create_tab_button("Enchant")
 	_tab_enhance_button.pressed.connect(show_enhance_tab)
 	tab_row.add_child(_tab_enhance_button)
 
@@ -144,18 +150,21 @@ func _build_ui() -> void:
 	tab_row.add_child(_status_label)
 
 	_shop_tab = HBoxContainer.new()
+	_shop_tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_shop_tab.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_shop_tab.add_theme_constant_override("separation", 10)
 	root.add_child(_shop_tab)
 	_build_shop_tab()
 
 	_sell_tab = HBoxContainer.new()
+	_sell_tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_sell_tab.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_sell_tab.add_theme_constant_override("separation", 10)
 	root.add_child(_sell_tab)
 	_build_sell_tab()
 
 	_enhance_tab = HBoxContainer.new()
+	_enhance_tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_enhance_tab.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_enhance_tab.add_theme_constant_override("separation", 10)
 	root.add_child(_enhance_tab)
@@ -163,34 +172,51 @@ func _build_ui() -> void:
 
 
 func _build_shop_tab() -> void:
-	var stock_panel := _create_section_panel(Vector2(260, 0))
-	var stock_box := _create_section_box(stock_panel)
-	stock_box.add_child(_create_section_title("For Sale"))
-	_shop_list = _create_list()
-	stock_box.add_child(_wrap_scroll(_shop_list))
-	_shop_tab.add_child(stock_panel)
+	var player_panel := _create_section_panel(Vector2(0, 280))
+	player_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	player_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	player_panel.size_flags_stretch_ratio = 1.0
+	var player_box := _create_section_box(player_panel)
+	player_box.add_child(_create_section_title("Player inventory"))
+	_sell_list = _create_grid_list()
+	player_box.add_child(_wrap_scroll(_sell_list))
+	_shop_tab.add_child(player_panel)
 
-	var detail_panel := _create_section_panel(Vector2(340, 0))
-	detail_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var detail_panel := _create_section_panel(Vector2(150, 280))
+	detail_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	detail_panel.size_flags_stretch_ratio = 0.72
 	var detail_box := _create_section_box(detail_panel)
-	detail_box.add_child(_create_section_title("Details"))
+	var trade_title := _create_section_title("Trade")
+	detail_box.add_child(trade_title)
 	_shop_detail_label = _create_detail_label()
+	_shop_detail_label.fit_content = true
+	_shop_detail_label.scroll_active = false
 	detail_box.add_child(_shop_detail_label)
 
 	_buy_button = Button.new()
-	_buy_button.custom_minimum_size = Vector2(160, 36)
-	_buy_button.text = "Buy"
-	_buy_button.pressed.connect(_buy_selected_item)
+	_buy_button.custom_minimum_size = Vector2(0, 40)
+	_buy_button.text = "Click an item to move it"
+	_buy_button.disabled = true
 	detail_box.add_child(_buy_button)
 	_shop_tab.add_child(detail_panel)
+
+	var stock_panel := _create_section_panel(Vector2(0, 280))
+	stock_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stock_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	stock_panel.size_flags_stretch_ratio = 1.0
+	var stock_box := _create_section_box(stock_panel)
+	stock_box.add_child(_create_section_title("Blacksmith inventory"))
+	_shop_list = _create_grid_list()
+	stock_box.add_child(_wrap_scroll(_shop_list))
+	_shop_tab.add_child(stock_panel)
 
 
 func _build_sell_tab() -> void:
 	var sell_panel := _create_section_panel(Vector2(300, 0))
 	var sell_box := _create_section_box(sell_panel)
 	sell_box.add_child(_create_section_title("Reserve Equipment"))
-	_sell_list = _create_list()
-	sell_box.add_child(_wrap_scroll(_sell_list))
+	var legacy_sell_list := _create_grid_list()
+	sell_box.add_child(_wrap_scroll(legacy_sell_list))
 	_sell_tab.add_child(sell_panel)
 
 	var detail_panel := _create_section_panel(Vector2(340, 0))
@@ -209,26 +235,105 @@ func _build_sell_tab() -> void:
 
 
 func _build_enhance_tab() -> void:
-	var list_panel := _create_section_panel(Vector2(240, 0))
-	var list_box := _create_section_box(list_panel)
-	list_box.add_child(_create_section_title("Owned Equipment"))
-	_enhance_list = _create_list()
-	list_box.add_child(_wrap_scroll(_enhance_list))
-	_enhance_tab.add_child(list_panel)
+	var enchant_layout := HBoxContainer.new()
+	enchant_layout.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	enchant_layout.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	enchant_layout.add_theme_constant_override("separation", 14)
+	_enhance_tab.add_child(enchant_layout)
 
-	var detail_panel := _create_section_panel(Vector2(280, 0))
+	var inventory_panel := _create_section_panel(Vector2(300, 0))
+	inventory_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	inventory_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	inventory_panel.size_flags_stretch_ratio = 1.1
+	var inventory_box := _create_section_box(inventory_panel)
+
+	var inventory_header := HBoxContainer.new()
+	inventory_header.add_theme_constant_override("separation", 8)
+	inventory_box.add_child(inventory_header)
+
+	var inventory_title := _create_section_title("Inventory")
+	inventory_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	inventory_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	inventory_header.add_child(inventory_title)
+
+	_enhance_filter_all_button = _create_tab_button("All")
+	_enhance_filter_all_button.custom_minimum_size = Vector2(72, 28)
+	_enhance_filter_all_button.pressed.connect(_set_enhance_filter.bind(&"all"))
+	inventory_header.add_child(_enhance_filter_all_button)
+
+	_enhance_filter_equipped_button = _create_tab_button("Equipped")
+	_enhance_filter_equipped_button.custom_minimum_size = Vector2(92, 28)
+	_enhance_filter_equipped_button.pressed.connect(_set_enhance_filter.bind(&"equipped"))
+	inventory_header.add_child(_enhance_filter_equipped_button)
+
+	var inventory_scroll := ScrollContainer.new()
+	inventory_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	inventory_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	inventory_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	inventory_box.add_child(inventory_scroll)
+
+	_enhance_list = GridContainer.new()
+	_enhance_list.columns = 2
+	_enhance_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_enhance_list.add_theme_constant_override("h_separation", 10)
+	_enhance_list.add_theme_constant_override("v_separation", 10)
+	inventory_scroll.add_child(_enhance_list)
+	enchant_layout.add_child(inventory_panel)
+
+	var left_column := VBoxContainer.new()
+	left_column.custom_minimum_size = Vector2(0, 0)
+	left_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	left_column.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	left_column.add_theme_constant_override("separation", 12)
+	enchant_layout.add_child(left_column)
+
+	var selection_row := HBoxContainer.new()
+	selection_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	selection_row.add_theme_constant_override("separation", 12)
+	left_column.add_child(selection_row)
+
+	var item_panel := _create_section_panel(Vector2(150, 190))
+	item_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var item_box := _create_section_box(item_panel)
+	item_box.add_child(_create_section_title("Item chosen"))
+	_enhance_selected_item_label = _create_detail_label()
+	_enhance_selected_item_label.custom_minimum_size = Vector2(0, 120)
+	_enhance_selected_item_label.scroll_active = false
+	item_box.add_child(_enhance_selected_item_label)
+	selection_row.add_child(item_panel)
+
+	var arrow_label := Label.new()
+	arrow_label.text = "<-"
+	arrow_label.custom_minimum_size = Vector2(42, 0)
+	arrow_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	arrow_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	arrow_label.add_theme_font_size_override("font_size", 30)
+	selection_row.add_child(arrow_label)
+
+	var material_panel := _create_section_panel(Vector2(150, 190))
+	material_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var material_box := _create_section_box(material_panel)
+	material_box.add_child(_create_section_title("Material used to enchant"))
+	_enhance_material_label = _create_detail_label()
+	_enhance_material_label.custom_minimum_size = Vector2(0, 120)
+	_enhance_material_label.scroll_active = false
+	material_box.add_child(_enhance_material_label)
+	selection_row.add_child(material_panel)
+
+	var detail_panel := _create_section_panel(Vector2(0, 0))
 	detail_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	detail_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var detail_box := _create_section_box(detail_panel)
-	detail_box.add_child(_create_section_title("Enhancement"))
+	detail_box.add_child(_create_section_title("Enchanting"))
 	_enhance_detail_label = _create_detail_label()
 	detail_box.add_child(_enhance_detail_label)
 
 	_enhance_button = Button.new()
-	_enhance_button.custom_minimum_size = Vector2(170, 38)
-	_enhance_button.text = "Enhance"
+	_enhance_button.custom_minimum_size = Vector2(180, 44)
+	_enhance_button.text = "Enchant"
 	_enhance_button.pressed.connect(_enhance_selected_item)
 	detail_box.add_child(_enhance_button)
-	_enhance_tab.add_child(detail_panel)
+	left_column.add_child(detail_panel)
 
 
 func _render_summary() -> void:
@@ -240,21 +345,22 @@ func _render_shop_inventory() -> void:
 	_clear_children(_shop_list)
 
 	if BlacksmithState.current_shop_items.is_empty():
-		_add_empty_label(_shop_list, "No stock available")
+		_add_empty_label(_shop_list, "No blacksmith stock")
 		return
 
 	for index in range(BlacksmithState.current_shop_items.size()):
 		var item := BlacksmithState.current_shop_items[index]
 		var affordable := BlacksmithState.can_afford(item)
-		var text := "%s\n%s  %d G" % [
+		var text := "%s\n%s\n%d G" % [
 			item.get_display_name(),
 			item.get_slot_name(),
 			item.get_purchase_price(),
 		]
 		var button := _create_item_button(item, text, index == _selected_shop_index)
+		button.custom_minimum_size = Vector2(0, 82)
 		if not affordable:
 			button.modulate = Color(1.0, 0.62, 0.62)
-		button.pressed.connect(_select_shop_item.bind(index))
+		button.pressed.connect(_buy_selected_item.bind(index))
 		_shop_list.add_child(button)
 
 
@@ -263,26 +369,28 @@ func _render_sell_inventory() -> void:
 	var items := BlacksmithState.get_owned_sell_items()
 
 	if items.is_empty():
-		_add_empty_label(_sell_list, "No reserve equipment")
+		_add_empty_label(_sell_list, "No player gear to trade")
 		return
 
 	for index in range(items.size()):
 		var item := items[index]
-		var button := _create_item_button(item, "%s\n%s  %d G" % [
+		var button := _create_item_button(item, "%s\n%s\n%d G" % [
 			item.get_display_name(),
 			item.get_slot_name(),
 			item.get_sell_value(),
 		], index == _selected_sell_index)
-		button.pressed.connect(_select_sell_item.bind(index))
+		button.custom_minimum_size = Vector2(0, 82)
+		button.pressed.connect(_sell_selected_item.bind(index))
 		_sell_list.add_child(button)
 
 
 func _render_enhance_inventory() -> void:
 	_clear_children(_enhance_list)
-	var items := BlacksmithState.get_enhance_items()
+	var items := _get_filtered_enhance_items()
+	_apply_enhance_filter_state()
 
 	if items.is_empty():
-		_add_empty_label(_enhance_list, "No owned equipment")
+		_add_empty_label(_enhance_list, "No equipment in this view")
 		return
 
 	for item in items:
@@ -292,51 +400,44 @@ func _render_enhance_inventory() -> void:
 			item.get_slot_name(),
 			_get_enhancement_text(item),
 		], selected)
+		button.custom_minimum_size = Vector2(0, 80)
 		button.pressed.connect(_select_enhance_item.bind(item))
 		_enhance_list.add_child(button)
 
 
 func _render_shop_details() -> void:
-	if _selected_shop_item == null:
-		_shop_detail_label.text = "[b]Select an item[/b]\n\n[color=%s]Choose stock on the left to inspect it.[/color]" % MUTED_COLOR
-		_buy_button.disabled = true
-		_buy_button.text = "Buy"
-		return
-
-	var affordable := BlacksmithState.can_afford(_selected_shop_item)
-	var price_color: String = NEUTRAL_COLOR if affordable else BAD_COLOR
-	_shop_detail_label.text = _format_item_detail(
-		_selected_shop_item,
-		"[color=%s]Cost: %d Gold[/color]" % [price_color, _selected_shop_item.get_purchase_price()]
-	)
-	_buy_button.disabled = not affordable
-	_buy_button.text = "Buy for %d G" % _selected_shop_item.get_purchase_price()
+	_shop_detail_label.text = "\n".join([
+		"[center][font_size=30][b]->[/b][/font_size][/center]",
+		"[center][color=%s]Click blacksmith items to buy them.[/color][/center]" % NEUTRAL_COLOR,
+		"",
+		"[center][color=%s]Click player items to sell them.[/color][/center]" % NEUTRAL_COLOR,
+		"",
+		"[center][color=%s]Gold: %d[/color][/center]" % [NEUTRAL_COLOR, ExpeditionState.gold],
+	])
+	_buy_button.disabled = true
+	_buy_button.text = "Click an item to move it"
 
 
 func _render_sell_details() -> void:
-	if _selected_sell_item == null:
-		_sell_detail_label.text = "[b]Select an item[/b]\n\n[color=%s]Choose reserve equipment to inspect its sell value.[/color]" % MUTED_COLOR
-		_sell_button.disabled = true
-		_sell_button.text = "Sell"
+	if _sell_detail_label == null:
 		return
 
-	_sell_detail_label.text = _format_item_detail(
-		_selected_sell_item,
-		"[color=%s]Sell Value: %d Gold[/color]\n[color=%s]Equipped gear is protected from selling.[/color]" % [
-			NEUTRAL_COLOR,
-			_selected_sell_item.get_sell_value(),
-			MUTED_COLOR,
-		]
-	)
-	_sell_button.disabled = false
-	_sell_button.text = "Sell for %d G" % _selected_sell_item.get_sell_value()
+	_sell_detail_label.text = ""
+	if _sell_button != null:
+		_sell_button.disabled = true
+		_sell_button.text = "Sell"
 
 
 func _render_enhance_details() -> void:
 	if _selected_enhance_item == null:
-		_enhance_detail_label.text = "[b]Select equipment[/b]\n\n[color=%s]Choose owned gear to enhance it.[/color]" % MUTED_COLOR
+		_enhance_selected_item_label.text = "[center][b]Empty slot[/b]\n\n[color=%s]Choose an item from the inventory panel.[/color][/center]" % MUTED_COLOR
+		_enhance_material_label.text = "[center][b]Enchant Ore[/b]\n\n[color=%s]Available: %d[/color][/center]" % [
+			NEUTRAL_COLOR,
+			ExpeditionState.ores,
+		]
+		_enhance_detail_label.text = "[b]Select equipment[/b]\n\n[color=%s]Choose gear from the inventory panel, then spend ore to enchant it.[/color]" % MUTED_COLOR
 		_enhance_button.disabled = true
-		_enhance_button.text = "Enhance"
+		_enhance_button.text = "Enchant"
 		return
 
 	var cost := BlacksmithState.get_enhance_cost(_selected_enhance_item)
@@ -344,8 +445,28 @@ func _render_enhance_details() -> void:
 	var maxed := level >= EquipmentInstance.MAX_ENHANCEMENT_LEVEL
 	var affordable := ExpeditionState.ores >= cost
 	var cost_color: String = NEUTRAL_COLOR if affordable else BAD_COLOR
+	_enhance_selected_item_label.text = "\n".join([
+		"[center][font_size=18][color=%s][b]%s[/b][/color][/font_size][/center]" % [
+			_selected_enhance_item.get_rarity_color().to_html(false),
+			_selected_enhance_item.get_display_name(),
+		],
+		"[center][color=%s]%s[/color][/center]" % [MUTED_COLOR, _selected_enhance_item.get_slot_name()],
+		"",
+		"[center][color=%s]Enhancement %s[/color][/center]" % [GOOD_COLOR, _get_enhancement_text(_selected_enhance_item)],
+		"[center]%s[/center]" % _get_enhancement_bonus_summary(_selected_enhance_item),
+	])
+	_enhance_material_label.text = "\n".join([
+		"[center][b]Enchant Ore[/b][/center]",
+		"",
+		"[center][color=%s]Owned: %d[/color][/center]" % [NEUTRAL_COLOR, ExpeditionState.ores],
+		"[center][color=%s]Cost: %d[/color][/center]" % [cost_color, cost],
+		"[center][color=%s]%s[/color][/center]" % [
+			MUTED_COLOR if not maxed else BAD_COLOR,
+			"Ready to infuse" if not maxed else "Item is maxed",
+		],
+	])
 	var extra_lines: Array[String] = [
-		"Enhancement: [b]+%d[/b]" % level,
+		"Enchantment Level: [b]+%d[/b]" % level,
 		"[b]Enhancement Bonuses[/b]",
 		"[color=%s]%s[/color]" % [GOOD_COLOR, _get_enhancement_bonus_summary(_selected_enhance_item)],
 		"[color=%s]Ore Cost: %d[/color]" % [cost_color, cost],
@@ -363,7 +484,7 @@ func _render_enhance_details() -> void:
 		"\n".join(extra_lines)
 	)
 	_enhance_button.disabled = maxed or not affordable
-	_enhance_button.text = "Maxed" if maxed else "Enhance"
+	_enhance_button.text = "Maxed" if maxed else "Enchant for %d Ore" % cost
 
 
 func _select_shop_item(index: int) -> void:
@@ -393,24 +514,34 @@ func _select_enhance_item(item: EquipmentData) -> void:
 	refresh()
 
 
-func _buy_selected_item() -> void:
+func _set_enhance_filter(filter_name: StringName) -> void:
+	_enhance_inventory_filter = filter_name
+	_status_label.text = ""
+	refresh()
+
+
+func _buy_selected_item(shop_index: int = -1) -> void:
+	if shop_index >= 0:
+		_selected_shop_index = shop_index
 	if _selected_shop_index < 0:
 		return
 
 	if BlacksmithState.buy_item(_selected_shop_index):
-		_status_label.text = "Purchased."
+		_status_label.text = "Bought item from blacksmith."
 		_selected_shop_index = -1
 		_selected_shop_item = null
 		inventory_changed.emit()
 		refresh()
 
 
-func _sell_selected_item() -> void:
+func _sell_selected_item(inventory_index: int = -1) -> void:
+	if inventory_index >= 0:
+		_selected_sell_index = inventory_index
 	if _selected_sell_index < 0:
 		return
 
 	if BlacksmithState.sell_inventory_item(_selected_sell_index):
-		_status_label.text = "Sold."
+		_status_label.text = "Sold item to blacksmith."
 		_selected_sell_index = -1
 		_selected_sell_item = null
 		if _selected_enhance_item != null and not _is_item_owned(_selected_enhance_item):
@@ -450,7 +581,7 @@ func _format_enhance_result(result: Dictionary) -> String:
 	match String(result.get("status", "")):
 		"success":
 			var stat_changes: Dictionary = result.get("stat_changes", {})
-			return "%s enhancement to +%d. %s" % [
+			return "%s enchantment to +%d. %s" % [
 				String(result.get("enhancement_quality", "Solid")),
 				int(result.get("level_after", 0)),
 				_format_stat_changes(stat_changes),
@@ -530,6 +661,35 @@ func _connect_state_signals() -> void:
 		BlacksmithState.transaction_failed.connect(_on_transaction_failed)
 
 
+func _get_filtered_enhance_items() -> Array[EquipmentData]:
+	var all_items: Array[EquipmentData] = []
+	for item in ExpeditionState.inventory:
+		if item != null:
+			all_items.append(item)
+
+	for item in ExpeditionState.equipped_gear.values():
+		var equipment_item := item as EquipmentData
+		if equipment_item != null and not all_items.has(equipment_item):
+			all_items.append(equipment_item)
+
+	if _enhance_inventory_filter == &"equipped":
+		var equipped_items: Array[EquipmentData] = []
+		for item in ExpeditionState.equipped_gear.values():
+			var equipment_item := item as EquipmentData
+			if equipment_item != null:
+				equipped_items.append(equipment_item)
+		return equipped_items
+
+	return all_items
+
+
+func _apply_enhance_filter_state() -> void:
+	if _enhance_filter_all_button != null:
+		_enhance_filter_all_button.disabled = _enhance_inventory_filter == &"all"
+	if _enhance_filter_equipped_button != null:
+		_enhance_filter_equipped_button.disabled = _enhance_inventory_filter == &"equipped"
+
+
 func _on_state_changed() -> void:
 	if is_inside_tree():
 		refresh()
@@ -606,7 +766,17 @@ func _create_list() -> VBoxContainer:
 	return list
 
 
-func _wrap_scroll(list: VBoxContainer) -> ScrollContainer:
+func _create_grid_list() -> GridContainer:
+	var grid := GridContainer.new()
+	grid.columns = 1
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
+	return grid
+
+
+func _wrap_scroll(list: Control) -> ScrollContainer:
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -629,7 +799,7 @@ func _create_item_button(item: EquipmentData, text: String, selected: bool = fal
 	return button
 
 
-func _add_empty_label(parent: VBoxContainer, text: String) -> void:
+func _add_empty_label(parent: Node, text: String) -> void:
 	var label := Label.new()
 	label.text = text
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
