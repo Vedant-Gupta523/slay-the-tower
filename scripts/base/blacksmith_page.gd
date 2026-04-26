@@ -12,8 +12,10 @@ const PANEL_COLOR := Color(0.095, 0.10, 0.11, 1.0)
 const PANEL_BORDER := Color(0.34, 0.36, 0.38, 0.9)
 const ROW_NORMAL := Color(0.13, 0.135, 0.145, 1.0)
 const ROW_SELECTED := Color(0.22, 0.20, 0.12, 1.0)
-const TRADE_LIST_PANEL_MIN_WIDTH := 250
-const TRADE_DETAIL_PANEL_MIN_WIDTH := 240
+const TRADE_LIST_PANEL_WIDTH := 250
+const TRADE_DETAIL_PANEL_WIDTH := 340
+const TRADE_PANEL_HEIGHT := 370
+const TRADE_DETAIL_TEXT_HEIGHT := 250
 const TRADE_ITEM_CARD_HEIGHT := 84
 const TRADE_ITEM_NAME_MAX_CHARS := 20
 const TRADE_ITEM_META_MAX_CHARS := 18
@@ -202,39 +204,40 @@ func _build_ui() -> void:
 
 
 func _build_shop_tab() -> void:
-	var player_panel := _create_section_panel(Vector2(TRADE_LIST_PANEL_MIN_WIDTH, 280))
-	player_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	player_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	player_panel.size_flags_stretch_ratio = 1.0
+	var player_panel := _create_section_panel(Vector2(TRADE_LIST_PANEL_WIDTH, TRADE_PANEL_HEIGHT))
+	player_panel.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	player_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	var player_box := _create_section_box(player_panel)
 	player_box.add_child(_create_section_title("Player inventory"))
 	_sell_list = _create_grid_list()
 	player_box.add_child(_wrap_scroll(_sell_list))
 	_shop_tab.add_child(player_panel)
 
-	var detail_panel := _create_section_panel(Vector2(TRADE_DETAIL_PANEL_MIN_WIDTH, 280))
-	detail_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	detail_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	detail_panel.size_flags_stretch_ratio = 0.72
+	var detail_panel := _create_section_panel(Vector2(TRADE_DETAIL_PANEL_WIDTH, TRADE_PANEL_HEIGHT))
+	detail_panel.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	detail_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	var detail_box := _create_section_box(detail_panel)
 	var trade_title := _create_section_title("Trade")
 	detail_box.add_child(trade_title)
 	_shop_detail_label = _create_detail_label()
-	_shop_detail_label.fit_content = true
-	_shop_detail_label.scroll_active = false
+	_shop_detail_label.custom_minimum_size = Vector2(0, TRADE_DETAIL_TEXT_HEIGHT)
+	_shop_detail_label.fit_content = false
+	_shop_detail_label.scroll_active = true
 	detail_box.add_child(_shop_detail_label)
 
 	_buy_button = Button.new()
 	_buy_button.custom_minimum_size = Vector2(0, 40)
+	_buy_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_buy_button.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	_buy_button.clip_text = true
 	_buy_button.text = "Click an item to move it"
 	_buy_button.disabled = true
 	detail_box.add_child(_buy_button)
 	_shop_tab.add_child(detail_panel)
 
-	var stock_panel := _create_section_panel(Vector2(TRADE_LIST_PANEL_MIN_WIDTH, 280))
-	stock_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	stock_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	stock_panel.size_flags_stretch_ratio = 1.0
+	var stock_panel := _create_section_panel(Vector2(TRADE_LIST_PANEL_WIDTH, TRADE_PANEL_HEIGHT))
+	stock_panel.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	stock_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	var stock_box := _create_section_box(stock_panel)
 	stock_box.add_child(_create_section_title("Blacksmith inventory"))
 	_shop_list = _create_grid_list()
@@ -445,6 +448,21 @@ func _render_enhance_inventory() -> void:
 
 func _render_shop_details() -> void:
 	_validate_pending_trade()
+	var detail_item := _get_trade_detail_item()
+	if detail_item != null:
+		var price := _get_trade_detail_price(detail_item)
+		var action_text := "Buy for %d G" % price if _get_trade_detail_type() == &"buy" else "Sell for %d G" % price
+		_shop_detail_label.text = _format_item_detail(detail_item, "\n".join([
+			"[color=%s]%s[/color]" % [NEUTRAL_COLOR, action_text],
+			"",
+			"[color=%s]Confirm or cancel in the popup.[/color]" % MUTED_COLOR,
+		]))
+		_buy_button.disabled = true
+		_buy_button.text = "Confirm in popup"
+		_buy_button.visible = true
+		_sync_trade_confirm_popup()
+		return
+
 	_shop_detail_label.text = "\n".join([
 		"[center][font_size=28][b]↔[/b][/font_size][/center]",
 		"[center][color=%s]Click blacksmith items to prepare a purchase.[/color][/center]" % NEUTRAL_COLOR,
@@ -834,6 +852,34 @@ func _format_item_detail(item: EquipmentData, extra_line: String) -> String:
 	])
 
 
+func _get_trade_detail_item() -> EquipmentData:
+	if _pending_trade_item != null:
+		return _pending_trade_item
+	if _selected_shop_item != null:
+		return _selected_shop_item
+	if _selected_sell_item != null:
+		return _selected_sell_item
+	return null
+
+
+func _get_trade_detail_type() -> StringName:
+	if _pending_trade_type != &"":
+		return _pending_trade_type
+	if _selected_shop_item != null:
+		return &"buy"
+	if _selected_sell_item != null:
+		return &"sell"
+	return &""
+
+
+func _get_trade_detail_price(item: EquipmentData) -> int:
+	if _pending_trade_item == item and _pending_trade_price > 0:
+		return _pending_trade_price
+	if _get_trade_detail_type() == &"buy":
+		return item.get_purchase_price()
+	return item.get_sell_value()
+
+
 func _format_enhance_result(result: Dictionary) -> String:
 	match String(result.get("status", "")):
 		"success":
@@ -1189,6 +1235,8 @@ func _create_section_title(text: String) -> Label:
 func _create_detail_label() -> RichTextLabel:
 	var label := RichTextLabel.new()
 	label.bbcode_enabled = true
+	label.fit_content = false
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	label.scroll_active = true
@@ -1228,6 +1276,7 @@ func _create_item_button(item: EquipmentData, text: String, selected: bool = fal
 	button.size = Vector2(0, TRADE_ITEM_CARD_HEIGHT)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	button.clip_text = true
 	button.text = text
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND

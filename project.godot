@@ -18,3 +18,4 @@ config/features=PackedStringArray("4.5", "Forward Plus")
 
 ExpeditionState="*res://scripts/progression/expedition_state.gd"
 BlacksmithState="*res://scripts/base/blacksmith_state.gd"
+WitchState="*res://scripts/base/witch_state.gd"

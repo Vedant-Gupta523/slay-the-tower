@@ -131,6 +131,12 @@ custom_minimum_size = Vector2(0, 38)
 layout_mode = 2
 text = "Equipment"
 
+[node name="InventoryButton" type="Button" parent="RootPanel/RootMargin/MainBox/Content/ActionsPanel/ActionsMargin/ActionsBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+text = "Inventory"
+
 [node name="BlacksmithButton" type="Button" parent="RootPanel/RootMargin/MainBox/Content/ActionsPanel/ActionsMargin/ActionsBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 38)
@@ -154,6 +160,12 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 38)
 layout_mode = 2
 text = "Quest Board"
+
+[node name="DebugModeButton" type="Button" parent="RootPanel/RootMargin/MainBox/Content/ActionsPanel/ActionsMargin/ActionsBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+text = "Debug Mode"
 
 [node name="ServicePanel" type="PanelContainer" parent="RootPanel/RootMargin/MainBox/Content"]
 custom_minimum_size = Vector2(480, 0)

@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="MaterialData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1_strange_root"]
+
+[resource]
+script = ExtResource("1_strange_root")
+item_id = &"strange_root"
+item_name = "Strange Root"
+description = "A twisted root that tastes bitter and leaves a warm pulse in the hands."
+rarity = 1
+gold_value = 22
+material_type = &"mysterious_ingredient"

@@ -16,6 +16,7 @@ var monster_materials: int = 0
 var ores: int = TEST_STARTING_ORES
 var herbs: int = 0
 var inventory: Array[EquipmentData] = []
+var item_inventory: Array[ItemData] = []
 var skill_books: Array[SkillData] = []
 var equipped_gear: Dictionary = {}
 var equipped_skills: Array[SkillData] = []
@@ -44,6 +45,7 @@ func reset() -> void:
 	ores = TEST_STARTING_ORES
 	herbs = 0
 	inventory.clear()
+	item_inventory.clear()
 	skill_books.clear()
 	equipped_gear.clear()
 	equipped_skills.clear()
@@ -160,6 +162,135 @@ func add_equipment_item(item: EquipmentData) -> void:
 
 	inventory.append(owned_item)
 	emit_signal("expedition_state_changed")
+
+
+func add_item(item: ItemData) -> void:
+	if item == null:
+		return
+
+	item_inventory.append(item)
+	emit_signal("expedition_state_changed")
+
+
+func add_material_item(item: MaterialData) -> void:
+	add_item(item)
+
+
+func add_potion_item(item: PotionData) -> void:
+	add_item(item)
+
+
+func remove_item(item: ItemData) -> bool:
+	if item == null:
+		return false
+
+	var index := item_inventory.find(item)
+	if index < 0:
+		return false
+
+	item_inventory.remove_at(index)
+	emit_signal("expedition_state_changed")
+	return true
+
+
+func remove_item_at(index: int) -> ItemData:
+	if index < 0 or index >= item_inventory.size():
+		return null
+
+	var item := item_inventory[index]
+	item_inventory.remove_at(index)
+	emit_signal("expedition_state_changed")
+	return item
+
+
+func remove_material_item(item: MaterialData) -> bool:
+	return remove_item(item)
+
+
+func remove_potion_item(item: PotionData) -> bool:
+	return remove_item(item)
+
+
+func get_items_by_type(item_script) -> Array[ItemData]:
+	var results: Array[ItemData] = []
+	for item in item_inventory:
+		if item != null and item_script != null and is_instance_of(item, item_script):
+			results.append(item)
+	return results
+
+
+func get_material_items() -> Array[MaterialData]:
+	var materials: Array[MaterialData] = []
+	for item in item_inventory:
+		var material := item as MaterialData
+		if material != null:
+			materials.append(material)
+	return materials
+
+
+func get_potion_items() -> Array[PotionData]:
+	var potions: Array[PotionData] = []
+	for item in item_inventory:
+		var potion := item as PotionData
+		if potion != null:
+			potions.append(potion)
+	return potions
+
+
+func get_items_matching_tag(tag: StringName) -> Array[ItemData]:
+	var results: Array[ItemData] = []
+	for item in item_inventory:
+		if item != null and item.has_tag(tag):
+			results.append(item)
+	return results
+
+
+func get_materials_by_type(material_type: StringName) -> Array[MaterialData]:
+	var materials: Array[MaterialData] = []
+	for item in item_inventory:
+		var material := item as MaterialData
+		if material != null and material.material_type == material_type:
+			materials.append(material)
+	return materials
+
+
+func get_material_count(material_id: StringName = &"", material_type: StringName = &"") -> int:
+	var count := 0
+	for item in item_inventory:
+		var material := item as MaterialData
+		if material == null:
+			continue
+		if material_id != &"" and material.item_id != material_id:
+			continue
+		if material_type != &"" and material.material_type != material_type:
+			continue
+		count += 1
+	return count
+
+
+func get_potion_count(potion_id: StringName = &"") -> int:
+	var count := 0
+	for item in item_inventory:
+		var potion := item as PotionData
+		if potion == null:
+			continue
+		if potion_id != &"" and potion.item_id != potion_id:
+			continue
+		count += 1
+	return count
+
+
+func has_item(item_id: StringName) -> bool:
+	for item in item_inventory:
+		if item != null and item.item_id == item_id:
+			return true
+	return false
+
+
+func get_item_inventory_snapshot() -> Array[ItemData]:
+	var items: Array[ItemData] = []
+	items.assign(item_inventory)
+	return items
 
 
 func remove_equipment_item(item: EquipmentData) -> bool:

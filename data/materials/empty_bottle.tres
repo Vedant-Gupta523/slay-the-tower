@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="MaterialData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1_empty_bottle"]
+
+[resource]
+script = ExtResource("1_empty_bottle")
+item_id = &"empty_bottle"
+item_name = "Empty Bottle"
+description = "A plain glass bottle, clean enough to hold a simple brew."
+rarity = 0
+gold_value = 12
+material_type = &"bottle"

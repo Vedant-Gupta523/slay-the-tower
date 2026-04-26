@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="MaterialData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1_beast_claw"]
+
+[resource]
+script = ExtResource("1_beast_claw")
+item_id = &"beast_claw"
+item_name = "Beast Claw"
+description = "A heavy claw that still carries a trace of brutal momentum."
+rarity = 1
+gold_value = 23
+material_type = &"monster_material"

@@ -32,6 +32,9 @@ signal node_resolution_requested(node_data: MapNodeData, resolution: Dictionary)
 @export var max_zoom: float = 1.9
 @export var initial_zoom: float = 1.0
 
+@export_group("Debug")
+@export var debug_materials_dir: String = "res://data/materials"
+
 @export_group("Type Weights")
 @export var combat_weight: int = 55
 @export var event_weight: int = 22
@@ -78,6 +81,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_P:
 		_debug_reveal_map = not _debug_reveal_map
 		_apply_debug_reveal_state()
+		_grant_debug_resources()
 		get_viewport().set_input_as_handled()
 		return
 
@@ -222,6 +226,39 @@ func _apply_debug_reveal_state() -> void:
 
 	if map_view.has_method("set_debug_reveal_map"):
 		map_view.call("set_debug_reveal_map", _debug_reveal_map)
+
+
+func _grant_debug_resources() -> void:
+	ExpeditionState.add_gold(10)
+	ExpeditionState.add_resource(ExpeditionState.RESOURCE_MONSTER_MATERIALS, 10)
+	ExpeditionState.add_resource(ExpeditionState.RESOURCE_ORES, 10)
+	ExpeditionState.add_resource(ExpeditionState.RESOURCE_HERBS, 10)
+
+	for material in _load_debug_materials():
+		for _copy_index in range(10):
+			ExpeditionState.add_item(material)
+
+	_refresh_resource_hud()
+	refresh()
+
+
+func _load_debug_materials() -> Array[MaterialData]:
+	var materials: Array[MaterialData] = []
+	var dir := DirAccess.open(debug_materials_dir)
+	if dir == null:
+		push_warning("Missing debug materials directory: %s" % debug_materials_dir)
+		return materials
+
+	dir.list_dir_begin()
+	var file_name := dir.get_next()
+	while file_name != "":
+		if not dir.current_is_dir() and file_name.ends_with(".tres"):
+			var material := load("%s/%s" % [debug_materials_dir, file_name]) as MaterialData
+			if material != null:
+				materials.append(material)
+		file_name = dir.get_next()
+	dir.list_dir_end()
+	return materials
 
 
 func _apply_zoom() -> void:

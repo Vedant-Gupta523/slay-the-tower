@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="MaterialData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1_crystal_bottle"]
+
+[resource]
+script = ExtResource("1_crystal_bottle")
+item_id = &"crystal_bottle"
+item_name = "Crystal Bottle"
+description = "A faceted bottle that stabilizes stronger and stranger mixtures."
+rarity = 1
+gold_value = 28
+material_type = &"bottle"

@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="MaterialData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1_glowing_mushroom"]
+
+[resource]
+script = ExtResource("1_glowing_mushroom")
+item_id = &"glowing_mushroom"
+item_name = "Glowing Mushroom"
+description = "A damp cave cap that pulses with faint restorative light."
+rarity = 0
+gold_value = 16
+material_type = &"mysterious_ingredient"

@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="PotionData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/items/potion_data.gd" id="1_wild_elixir"]
+
+[resource]
+script = ExtResource("1_wild_elixir")
+item_id = &"wild_elixir"
+item_name = "Wild Elixir"
+description = "A chaotic orange swirl that helps and harms in equal measure."
+rarity = 2
+gold_value = 74
+heal_amount = 18
+buff_stats = {
+"atk": 3,
+"spd": 2
+}
+debuff_stats = {
+"def": 2
+}
+duration_turns = 3
+is_mixed_effect = true

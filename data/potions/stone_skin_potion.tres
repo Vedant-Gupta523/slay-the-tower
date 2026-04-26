@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="PotionData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/items/potion_data.gd" id="1_stone_skin_potion"]
+
+[resource]
+script = ExtResource("1_stone_skin_potion")
+item_id = &"stone_skin_potion"
+item_name = "Stone Skin Potion"
+description = "A heavy gray tonic that hardens flesh and slows the drinker a touch."
+rarity = 2
+gold_value = 68
+buff_stats = {
+"def": 5
+}
+debuff_stats = {
+"spd": 1
+}
+duration_turns = 3
+is_mixed_effect = true

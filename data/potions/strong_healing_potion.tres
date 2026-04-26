@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="PotionData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/items/potion_data.gd" id="1_strong_healing_potion"]
+
+[resource]
+script = ExtResource("1_strong_healing_potion")
+item_id = &"strong_healing_potion"
+item_name = "Strong Healing Potion"
+description = "A thicker red tonic with enough potency to pull someone back into the fight."
+rarity = 1
+gold_value = 56
+heal_amount = 42

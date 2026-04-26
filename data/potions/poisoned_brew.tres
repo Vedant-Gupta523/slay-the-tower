@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="PotionData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/items/potion_data.gd" id="1_poisoned_brew"]
+
+[resource]
+script = ExtResource("1_poisoned_brew")
+item_id = &"poisoned_brew"
+item_name = "Poisoned Brew"
+description = "A foul bottle that burns on the way down and leaves a corrosive sting."
+rarity = 1
+gold_value = 45
+damage_amount = 18
+debuff_stats = {
+"atk": 2,
+"def": 2
+}
+duration_turns = 2
