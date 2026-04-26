@@ -29,7 +29,7 @@ func start_or_continue(unit_data: UnitData = null) -> void:
 	if is_active:
 		return
 
-	reset()
+	_prepare_for_new_expedition()
 	is_active = true
 	dungeon_index = 1
 	initialize_from_unit_data(unit_data)
@@ -53,6 +53,13 @@ func reset() -> void:
 	blacksmith_refresh_counter = 0
 	emit_signal("expedition_state_changed")
 	emit_signal("resources_changed")
+
+
+func _prepare_for_new_expedition() -> void:
+	is_active = false
+	is_failed = false
+	is_complete = false
+	dungeon_index = 0
 
 
 func complete_current_dungeon() -> bool:
@@ -147,7 +154,11 @@ func add_equipment_item(item: EquipmentData) -> void:
 	if item == null:
 		return
 
-	inventory.append(EquipmentInstance.from_equipment_data(item))
+	var owned_item := EquipmentInstance.from_equipment_data(item)
+	if owned_item == null or inventory.has(owned_item) or is_item_equipped(owned_item):
+		return
+
+	inventory.append(owned_item)
 	emit_signal("expedition_state_changed")
 
 
@@ -180,10 +191,11 @@ func equip_inventory_item(inventory_index: int, slot_type: int) -> bool:
 
 	inventory.remove_at(inventory_index)
 	var old_item: EquipmentData = equipped_gear.get(slot_type, null) as EquipmentData
-	if old_item != null:
+	if old_item != null and old_item != item and not inventory.has(old_item):
 		inventory.append(old_item)
 
 	equipped_gear[slot_type] = item
+	_remove_duplicate_inventory_references()
 	emit_signal("expedition_state_changed")
 	return true
 
@@ -194,7 +206,9 @@ func unequip_gear_slot(slot_type: int) -> bool:
 		return false
 
 	equipped_gear.erase(slot_type)
-	inventory.append(item)
+	if not inventory.has(item):
+		inventory.append(item)
+	_remove_duplicate_inventory_references()
 	emit_signal("expedition_state_changed")
 	return true
 
@@ -202,6 +216,32 @@ func unequip_gear_slot(slot_type: int) -> bool:
 func increment_blacksmith_refresh_counter() -> void:
 	blacksmith_refresh_counter += 1
 	emit_signal("expedition_state_changed")
+
+
+func get_reserve_equipment() -> Array[EquipmentData]:
+	var items: Array[EquipmentData] = []
+	items.assign(inventory)
+	return items
+
+
+func get_all_owned_equipment() -> Array[EquipmentData]:
+	var items := get_reserve_equipment()
+	for item in equipped_gear.values():
+		var equipment_item := item as EquipmentData
+		if equipment_item != null and not items.has(equipment_item):
+			items.append(equipment_item)
+	return items
+
+
+func is_item_equipped(item: EquipmentData) -> bool:
+	if item == null:
+		return false
+
+	for equipped_item in equipped_gear.values():
+		if equipped_item == item:
+			return true
+
+	return false
 
 
 func initialize_from_unit_data(unit_data: UnitData) -> void:
@@ -235,6 +275,7 @@ func capture_from_player_unit(player: BattleUnit) -> void:
 	skill_books.assign(loadout.owned_skills)
 	equipped_skills.clear()
 	equipped_skills.assign(loadout.get_equipped_skills())
+	_remove_duplicate_inventory_references()
 	emit_signal("resources_changed")
 	emit_signal("expedition_state_changed")
 
@@ -259,3 +300,13 @@ func apply_to_player_unit(player: BattleUnit) -> void:
 	loadout.equipped_skills.assign(equipped_skills)
 	loadout.equipped_skills.resize(SkillLoadout.MAX_ACTIVE_SKILLS)
 	player.rebuild_skill_instances()
+
+
+func _remove_duplicate_inventory_references() -> void:
+	var seen: Dictionary = {}
+	for index in range(inventory.size() - 1, -1, -1):
+		var item := inventory[index]
+		if item == null or seen.has(item) or is_item_equipped(item):
+			inventory.remove_at(index)
+			continue
+		seen[item] = true
